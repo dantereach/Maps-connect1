@@ -1,0 +1,45 @@
+spring:
+  application:
+    name: maps-conect
+  
+  datasource:
+    url: jdbc:mysql://localhost:3306/maps_conect
+    username: root
+    password: 
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+  
+  mvc:
+    throw-exception-if-no-handler-found: true
+  
+  web:
+    resources:
+      add-mappings: false
+
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+logging:
+  level:
+    root: INFO
+    com.tecmilenio.mapsconect: DEBUG
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+jwt:
+  secret: your-secret-key-change-in-production
+  expiration: 86400000
+
+app:
+  name: MAPS Connect
+  version: 1.0.0

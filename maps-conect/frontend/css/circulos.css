@@ -1,0 +1,41 @@
+/* MAPS Connect - Círculos de estudio */
+
+.circulos-container { width: 100%; max-width: 1050px; margin: 0 auto; }
+.circulos-container .card, .circulos-container .btn, .circulos-container .badge, .circulos-container input { border-radius: 0; }
+.top-action-bar { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+.search-input { flex: 1; min-width: 250px; padding: 0.625rem 0.75rem; border: 1px solid var(--gray-300); background: white; font: inherit; font-size: 0.9rem; }
+.search-input:focus { outline: none; border-color: var(--sidebar-bg); }
+.circulos-container .btn-solid { display: inline-block; border: 1px solid var(--sidebar-bg); background: var(--sidebar-bg); padding: 0.55rem 1rem; color: white; font: inherit; font-size: 0.9rem; font-weight: 700; cursor: pointer; text-align: center; }
+.circulos-container .btn-solid:hover { background: #043b10; color: white; text-decoration: none; }
+.circulos-container .btn-clean { display: inline-block; border: 1px solid var(--sidebar-bg); background: transparent; padding: 0.45rem 0.875rem; color: var(--sidebar-bg); font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; text-align: center; }
+.circulos-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 1.25rem; }
+.section-title { margin-bottom: 0.875rem; font-size: 1.05rem; }
+.session-card { border-left: 4px solid var(--sidebar-bg); }
+.session-card.live-session { border-left-color: var(--danger-color); }
+.session-header, .session-footer { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; }
+.session-header { margin-bottom: 0.5rem; }
+.session-title { font-size: 1.15rem; }
+.session-info, .session-desc, .attendees-count, .group-description { color: var(--gray-600); }
+.session-info, .attendees-count { font-size: 0.85rem; }
+.session-desc { margin: 0.625rem 0 0.875rem; font-size: 0.9rem; line-height: 1.4; }
+.session-footer { align-items: center; border-top: 1px solid var(--gray-200); padding-top: 0.75rem; flex-wrap: wrap; }
+.session-actions, .badges-wrap { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.badge-live { border: 1px solid #fecaca; background: #fee2e2; color: #991b1b; }
+.badge-materia { border: 1px solid #c8e6c9; background: #e8f5e9; color: var(--sidebar-bg); }
+.badge-time { border: 1px solid #bae6fd; background: #e0f2fe; color: #0369a1; }
+.group-item { border-bottom: 1px solid var(--gray-200); padding: 0.75rem 0; }
+.group-item:first-child { padding-top: 0; }
+.group-item:last-child { border-bottom: 0; padding-bottom: 0; }
+.group-name { display: block; color: var(--gray-900); font-size: 0.95rem; font-weight: 700; }
+.group-description { display: block; margin-top: 0.125rem; font-size: 0.8rem; }
+.group-meta { display: flex; justify-content: space-between; gap: 0.5rem; margin-top: 0.375rem; color: var(--gray-600); font-size: 0.8rem; }
+.group-link { border: 0; background: transparent; color: var(--sidebar-bg); font: inherit; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
+.rules-card { border-top: 3px solid var(--sidebar-bg); }
+.rules-card h2 { font-size: 0.95rem; }
+.rules-card p, .empty-circles p { margin-top: 0.375rem; color: var(--gray-600); font-size: 0.85rem; line-height: 1.4; }
+.empty-circles { border-left: 4px solid var(--gray-300); text-align: center; }
+.empty-circles h2 { font-size: 1.05rem; }
+.loading-message { color: var(--gray-600); }
+
+@media (max-width: 850px) { .circulos-grid { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { .top-action-bar { align-items: stretch; flex-direction: column; } .search-input, .top-action-bar .btn-solid { width: 100%; } .session-footer { align-items: flex-start; flex-direction: column; } }
