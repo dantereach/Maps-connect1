@@ -51,6 +51,7 @@ const Layout = {
         if (!topbar) return;
 
         topbar.innerHTML = `
+            <button class="menu-backdrop" id="menu-backdrop" type="button" aria-label="Cerrar menú"></button>
             <button class="menu-toggle" id="sidebar-toggle" type="button"
                 aria-label="Abrir menú" aria-controls="sidebar" aria-expanded="false">
                 <span aria-hidden="true">☰</span>
@@ -62,11 +63,20 @@ const Layout = {
     bindToggle() {
         const toggle = document.getElementById('sidebar-toggle');
         const sidebar = document.getElementById('sidebar');
+        const layout = document.querySelector('.app-layout');
+        const backdrop = document.getElementById('menu-backdrop');
 
-        toggle?.addEventListener('click', () => {
-            const isOpen = sidebar?.classList.toggle('open') ?? false;
+        const setMenuState = isOpen => {
+            sidebar?.classList.toggle('open', isOpen);
+            layout?.classList.toggle('menu-open', isOpen);
             toggle.setAttribute('aria-expanded', String(isOpen));
             toggle.setAttribute('aria-label', isOpen ? 'Cerrar menú' : 'Abrir menú');
+        };
+
+        toggle?.addEventListener('click', () => setMenuState(!sidebar?.classList.contains('open')));
+        backdrop?.addEventListener('click', () => setMenuState(false));
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && sidebar?.classList.contains('open')) setMenuState(false);
         });
     },
 

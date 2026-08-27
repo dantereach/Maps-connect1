@@ -35,6 +35,7 @@ async function loadCompanies(content, filters = {}) {
 function renderCompanies(content, companies) {
     content.innerHTML = `
         <div class="empresarial-container">
+            <header class="module-heading"><h1>Semestre Empresarial</h1><p>Explora empresas vinculadas y experiencias compartidas por la comunidad.</p></header>
             <form class="filter-bar" id="company-filter-form">
                 <label class="visually-hidden" for="company-search">Buscar empresa</label>
                 <input class="input-search" id="company-search" name="busqueda" type="search" placeholder="Buscar por empresa, tecnología o proyecto...">
@@ -64,7 +65,7 @@ function renderCompany(company) {
     return `
         <article class="card company-card">
             <header class="company-header">
-                <div><h1 class="company-name">${escapeHtml(company.nombre || 'Empresa')}</h1>${locationAndMode ? `<span class="company-location">${escapeHtml(locationAndMode)}</span>` : ''}</div>
+                <div><h2 class="company-name">${escapeHtml(company.nombre || 'Empresa')}</h2>${locationAndMode ? `<span class="company-location">${escapeHtml(locationAndMode)}</span>` : ''}</div>
                 ${hasRating ? `<div class="rating-box"><span class="stars" aria-label="${rating} de 5 estrellas">${renderStars(rating)}</span><strong class="rating-number">${rating.toFixed(1)}</strong>${Number.isFinite(Number(company.totalResenas)) ? `<span class="rating-count">(${Number(company.totalResenas)} reseñas)</span>` : ''}</div>` : ''}
             </header>
             ${company.descripcion ? `<p class="company-desc"><strong>¿Qué hacen?</strong> ${escapeHtml(company.descripcion)}</p>` : ''}
@@ -81,7 +82,7 @@ function renderExperience(experience) {
 }
 
 function renderEmptyCompanies() {
-    return '<section class="card empty-companies"><h1>Aún no hay empresas disponibles</h1><p>Las empresas vinculadas y las experiencias de estudiantes aparecerán aquí cuando se registren.</p></section>';
+    return '<section class="card empty-companies"><h2>Aún no hay empresas disponibles</h2><p>Las empresas vinculadas y las experiencias de estudiantes aparecerán aquí cuando se registren.</p></section>';
 }
 
 function renderStars(rating) {

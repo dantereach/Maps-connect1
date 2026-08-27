@@ -1,11 +1,14 @@
 /* MAPS Connect - Directorio de Semestre Empresarial */
 
 .empresarial-container { width: 100%; max-width: 1050px; margin: 0 auto; }
+.module-heading { margin-bottom: 1.5rem; }
+.module-heading h1 { color: var(--sidebar-bg); font-size: 1.75rem; }
+.module-heading p { margin-top: 0.25rem; color: var(--gray-600); }
 .empresarial-container .card, .empresarial-container .btn, .empresarial-container .badge, .empresarial-container input, .empresarial-container select { border-radius: 0; }
 .filter-bar { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 0.625rem; margin-bottom: 1.5rem; }
 .input-search, .select-filter { min-width: 0; padding: 0.625rem 0.75rem; border: 1px solid var(--gray-300); background: white; font: inherit; font-size: 0.9rem; }
 .input-search:focus, .select-filter:focus { outline: none; border-color: var(--sidebar-bg); }
-.company-card { margin-bottom: 1.25rem; padding: 1.25rem; }
+.company-card { margin-bottom: 1.75rem; padding: 1.25rem; }
 .company-header, .company-footer { display: flex; justify-content: space-between; gap: 1rem; }
 .company-header { align-items: flex-start; margin-bottom: 0.75rem; }
 .company-name { font-size: 1.2rem; }

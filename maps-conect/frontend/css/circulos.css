@@ -1,6 +1,9 @@
 /* MAPS Connect - Círculos de estudio */
 
 .circulos-container { width: 100%; max-width: 1050px; margin: 0 auto; }
+.module-heading { margin-bottom: 1.5rem; }
+.module-heading h1 { color: var(--sidebar-bg); font-size: 1.75rem; }
+.module-heading p { margin-top: 0.25rem; color: var(--gray-600); }
 .circulos-container .card, .circulos-container .btn, .circulos-container .badge, .circulos-container input { border-radius: 0; }
 .top-action-bar { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
 .search-input { flex: 1; min-width: 250px; padding: 0.625rem 0.75rem; border: 1px solid var(--gray-300); background: white; font: inherit; font-size: 0.9rem; }
@@ -10,7 +13,7 @@
 .circulos-container .btn-clean { display: inline-block; border: 1px solid var(--sidebar-bg); background: transparent; padding: 0.45rem 0.875rem; color: var(--sidebar-bg); font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; text-align: center; }
 .circulos-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 1.25rem; }
 .section-title { margin-bottom: 0.875rem; font-size: 1.05rem; }
-.session-card { border-left: 4px solid var(--sidebar-bg); }
+.session-card { margin-bottom: 1.5rem; border-left: 4px solid var(--sidebar-bg); }
 .session-card.live-session { border-left-color: var(--danger-color); }
 .session-header, .session-footer { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; }
 .session-header { margin-bottom: 0.5rem; }

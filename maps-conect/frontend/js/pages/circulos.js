@@ -31,14 +31,15 @@ async function loadCircles(content, search = '') {
 function renderCircles(content, sessions, groups) {
     content.innerHTML = `
         <div class="circulos-container">
+            <header class="module-heading"><h1>Círculos de estudio</h1><p>Encuentra sesiones de repaso y comunidades para aprender en conjunto.</p></header>
             <form class="top-action-bar" id="circle-search-form">
                 <label class="visually-hidden" for="circle-search">Buscar círculo o sesión</label>
                 <input class="search-input" id="circle-search" name="busqueda" type="search" placeholder="Buscar círculo o sesión por materia...">
                 <button class="btn-solid" type="button" id="create-circle">+ Crear nuevo círculo</button>
             </form>
             <div class="circulos-grid">
-                <section><h1 class="section-title">Próximas sesiones de repaso</h1>${sessions.length ? sessions.map(renderSession).join('') : renderEmptySessions()}</section>
-                <aside><h1 class="section-title">Tus grupos permanentes</h1>${groups.length ? `<section class="card">${groups.map(renderGroup).join('')}</section>` : ''}<section class="card rules-card"><h2>Normas del círculo</h2><p>Los círculos son espacios colaborativos. Comparte material libre de plagio y mantén el respeto en las salas de videollamada.</p></section></aside>
+                <section><h2 class="section-title">Próximas sesiones de repaso</h2>${sessions.length ? sessions.map(renderSession).join('') : renderEmptySessions()}</section>
+                <aside><h2 class="section-title">Tus grupos permanentes</h2>${groups.length ? `<section class="card">${groups.map(renderGroup).join('')}</section>` : ''}<section class="card rules-card"><h2>Normas del círculo</h2><p>Los círculos son espacios colaborativos. Comparte material libre de plagio y mantén el respeto en las salas de videollamada.</p></section></aside>
             </div>
         </div>
     `;
