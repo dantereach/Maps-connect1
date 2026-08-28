@@ -1,12 +1,31 @@
 # Dragon Ball Fusion World - Version basica en Java
 
 Simulacion muy simplificada y no oficial del TCG "Dragon Ball Fusion World".
-Incluye dos modos:
+Incluye tres modos:
 
-1. **Modo grafico (por defecto)**: pelea de stickman con interfaz Swing.
-2. **Modo texto**: version de consola basada en cartas (Lider, mazo, fusion, etc.).
+1. **Juego de cartas (por defecto)**: interfaz grafica con lideres, poder en miles y efectos de carta.
+2. **Modo stickman**: pelea grafica arcade de figuras de palitos.
+3. **Modo texto**: version de consola basada en cartas (version anterior, mas simple).
 
-## Modo grafico (stickman)
+## Juego de cartas (modo por defecto)
+
+Reglas inspiradas en Dragon Ball Fusion World:
+
+- Cada jugador tiene un **Lider** con vida (empieza en 7) y energia que crece 1 por turno.
+- **Lider Azul (jugador)**: poder base 15000.
+  - Puede **potenciar** una carta propia una vez por turno (+5000 de poder, cuesta 1 de energia).
+  - Si tu mano tiene **7 cartas o menos**, tu lider ataca con **35000** de poder en vez de su poder normal.
+  - Cuando tu vida llega a **4 o menos**, el lider se **transforma** (se da la vuelta) y su poder pasa a **20000**.
+- **Lider CPU**: generico, poder fijo 15000, sin habilidades especiales.
+- Tipos de carta de batalla:
+  - **Basica**: 15000 de poder, costo 2.
+  - **Explorador (Roba 1)**: 5000 de poder, costo 1; al jugarla robas 1 carta del mazo.
+  - **Guardian (Guardia)**: 20000 de poder, pero al **defender** (turno del oponente) sube a **25000**.
+  - **Golpeador Doble (Double Strike)**: 35000 de poder, costo 4; si conecta sin ser bloqueada, hace **2 de daño** de vida en vez de 1.
+- En combate, si nadie bloquea un ataque, el defensor pierde vida (1, o 2 con Double Strike). Si se bloquea, gana la carta con mas poder (empate = ambas destruidas). Los lideres nunca son destruidos en combate.
+- Gana quien deje al oponente sin vida (o sin cartas para robar).
+
+## Modo stickman
 
 Dos figuras de palitos (tu en azul, la CPU en rojo) pelean por turnos:
 - **Puñetazo** / **Patada**: atacan e infligen daño segun un rango aleatorio (la patada pega mas fuerte).
@@ -14,7 +33,8 @@ Dos figuras de palitos (tu en azul, la CPU en rojo) pelean por turnos:
 - La CPU alterna entre atacar y, ocasionalmente (25%), ponerse en guardia.
 - Gana quien deje al otro con 0 de vida (barra roja/verde arriba de cada personaje).
 
-## Modo texto (cartas)
+## Modo texto (cartas, version simple)
+
 
 - Cada jugador tiene 5 cartas de vida y roba 1 carta al inicio de cada turno.
 - Cada turno se gana 1 punto de energia extra (maximo 10) que se usa para jugar cartas de la mano (segun su costo).
@@ -31,8 +51,9 @@ Dos figuras de palitos (tu en azul, la CPU en rojo) pelean por turnos:
 ```powershell
 cd dbfw-game
 javac -d out src/*.java
-java -cp out Main          # abre la interfaz grafica (stickman)
-java -cp out Main texto    # abre la version de consola con cartas
+java -cp out Main            # juego de cartas (por defecto)
+java -cp out Main stickman   # pelea grafica de stickman
+java -cp out Main texto      # version de consola con cartas (simple)
 ```
 
 Este es un proyecto de aficionado con fines educativos/recreativos, no afiliado a Bandai ni a Dragon Ball.
