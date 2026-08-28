@@ -1,18 +1,23 @@
 import javax.swing.BorderFactory;
+import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
+import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 
@@ -135,6 +140,10 @@ public class CardBattleFrame extends JFrame {
         String texto = "<html><center>" + l.getName() + "<br>PWR " + poder
                 + (l.isTransformed() ? "<br>(Transformado)" : "") + (l.isRested() ? "<br>[girado]" : "") + "</center></html>";
         JButton b = new JButton(texto);
+        Color colorBase = p == human ? Color.BLUE : Color.RED;
+        b.setIcon(CardArt.leaderIcon(colorBase, l.isTransformed()));
+        b.setHorizontalTextPosition(SwingConstants.CENTER);
+        b.setVerticalTextPosition(SwingConstants.BOTTOM);
         b.setBackground(l.isTransformed() ? new Color(255, 200, 120) : new Color(200, 220, 255));
         b.setOpaque(true);
         if (interactivoParaAtacar && p == human) {
@@ -167,8 +176,12 @@ public class CardBattleFrame extends JFrame {
     /** Boton para una carta en la mano del jugador: al hacer clic, se juega (si hay energia). */
     private JButton crearBotonCartaMano(GameCard c) {
         String texto = "<html><center>" + c.getName() + "<br>PWR " + c.getEffectivePower(false)
-                + "<br>" + etiquetaTipo(c.getType()) + "<br>Costo " + c.getCost() + "</center></html>";
+                + "<br>" + etiquetaTipo(c.getType()) + "<br>Costo " + c.getCost()
+                + "<br>Combo " + c.getComboPower() + "</center></html>";
         JButton b = new JButton(texto);
+        b.setIcon(CardArt.stickmanIcon(c.getType(), new Color(70, 70, 70)));
+        b.setHorizontalTextPosition(SwingConstants.CENTER);
+        b.setVerticalTextPosition(SwingConstants.BOTTOM);
         b.setBackground(colorTipo(c.getType()));
         b.setOpaque(true);
         b.setEnabled(!gameOver && human.getEnergyAvailable() >= c.getCost());
@@ -182,6 +195,9 @@ public class CardBattleFrame extends JFrame {
                 + "<br>" + etiquetaTipo(c.getType())
                 + (c.isRested() ? "<br>[girada]" : "") + "</center></html>";
         JButton b = new JButton(texto);
+        b.setIcon(CardArt.stickmanIcon(c.getType(), esDelJugador ? Color.BLUE : Color.RED));
+        b.setHorizontalTextPosition(SwingConstants.CENTER);
+        b.setVerticalTextPosition(SwingConstants.BOTTOM);
         b.setBackground(colorTipo(c.getType()));
         b.setOpaque(true);
         if (esDelJugador) {
@@ -243,6 +259,19 @@ public class CardBattleFrame extends JFrame {
         int poder = human.getLeader().getAttackPower(human.getHand().size());
         human.getLeader().setRested(true);
         appendLog("Tu lider ataca con " + poder + " de poder.");
+
+        int combo = preguntarCombo(human, "el ataque de tu Lider");
+        if (combo > 0) {
+            poder += combo;
+            appendLog("Usas combo: +" + combo + " de poder (total " + poder + ").");
+        }
+
+        if (!human.drawCard()) {
+            declararDerrota(human);
+            return;
+        }
+        appendLog("Tu lider roba 1 carta al atacar.");
+
         resolverAtaque(human, cpu, poder, false, "Tu Lider");
         refreshUI();
     }
@@ -254,6 +283,13 @@ public class CardBattleFrame extends JFrame {
         int poder = c.getEffectivePower(false);
         c.setRested(true);
         appendLog(c.getName() + " ataca con " + poder + " de poder.");
+
+        int combo = preguntarCombo(human, "el ataque de " + c.getName());
+        if (combo > 0) {
+            poder += combo;
+            appendLog("Usas combo: +" + combo + " de poder (total " + poder + ").");
+        }
+
         resolverAtaque(human, cpu, poder, c.isDoubleStrike(), c.getName());
         refreshUI();
     }
@@ -313,6 +349,12 @@ public class CardBattleFrame extends JFrame {
             int poder = cpu.getLeader().getDefensePower();
             cpu.getLeader().setRested(true);
             appendLog("El Lider CPU ataca con " + poder + " de poder.");
+            poder += cpuComboOfensivoOportunista();
+            if (!cpu.drawCard()) {
+                declararDerrota(cpu);
+                return;
+            }
+            appendLog("El Lider CPU roba 1 carta al atacar.");
             resolverAtaque(cpu, human, poder, false, "Lider CPU");
             if (gameOver) {
                 return;
@@ -323,6 +365,7 @@ public class CardBattleFrame extends JFrame {
                 int poder = c.getEffectivePower(false);
                 c.setRested(true);
                 appendLog("CPU ataca con " + c.getName() + " (PWR " + poder + ").");
+                poder += cpuComboOfensivoOportunista();
                 resolverAtaque(cpu, human, poder, c.isDoubleStrike(), c.getName());
                 if (gameOver) {
                     return;
@@ -330,6 +373,23 @@ public class CardBattleFrame extends JFrame {
             }
         }
         refreshUI();
+    }
+
+    /**
+     * IA simple de combo ofensivo para la CPU: con 30% de probabilidad, quema la carta de su mano
+     * con menor poder de combo (para no gastar sus mejores comodines) y suma ese poder al ataque.
+     */
+    private int cpuComboOfensivoOportunista() {
+        if (cpu.getHand().isEmpty() || random.nextDouble() > 0.3) {
+            return 0;
+        }
+        GameCard elegido = cpu.getHand().stream().min(Comparator.comparingInt(GameCard::getComboPower)).orElse(null);
+        if (elegido == null) {
+            return 0;
+        }
+        cpu.getHand().remove(elegido);
+        appendLog("CPU quema " + elegido.getName() + " en combo (+" + elegido.getComboPower() + " de poder).");
+        return elegido.getComboPower();
     }
 
     // ---------------- RESOLUCION DE COMBATE ----------------
@@ -351,10 +411,34 @@ public class CardBattleFrame extends JFrame {
             return;
         }
 
+        int poderDef;
+        if (bloqueador instanceof LeaderCard) {
+            poderDef = ((LeaderCard) bloqueador).getDefensePower();
+        } else {
+            poderDef = ((GameCard) bloqueador).getEffectivePower(true);
+        }
+
+        // Combo defensivo: solo tiene sentido si bloquea una CARTA (el lider nunca es destruido,
+        // asi que gastar combo para defenderlo seria un desperdicio).
+        if (bloqueador instanceof GameCard) {
+            if (defensor == human) {
+                int combo = preguntarCombo(human, "defenderte");
+                if (combo > 0) {
+                    poderDef += combo;
+                    appendLog("Usas combo para defenderte: +" + combo + " de poder (total " + poderDef + ").");
+                }
+            } else {
+                int combo = cpuComboDefensivo(poderAtaque, poderDef);
+                if (combo > 0) {
+                    poderDef += combo;
+                    appendLog("CPU usa combo para defenderse: +" + combo + " de poder (total " + poderDef + ").");
+                }
+            }
+        }
+
         if (bloqueador instanceof LeaderCard) {
             LeaderCard l = (LeaderCard) bloqueador;
             l.setRested(true);
-            int poderDef = l.getDefensePower();
             appendLog(defensor.getName() + " bloquea con su Lider (PWR " + poderDef + ").");
             if (poderAtaque > poderDef) {
                 appendLog("El lider de " + defensor.getName() + " resiste el golpe, pero no es destruido (los lideres no mueren en combate).");
@@ -364,7 +448,6 @@ public class CardBattleFrame extends JFrame {
         } else {
             GameCard c = (GameCard) bloqueador;
             c.setRested(true);
-            int poderDef = c.getEffectivePower(true);
             appendLog(defensor.getName() + " bloquea con " + c.getName() + " (PWR " + poderDef + ").");
             if (poderAtaque > poderDef) {
                 defensor.getBattleArea().remove(c);
@@ -378,18 +461,91 @@ public class CardBattleFrame extends JFrame {
         }
     }
 
+    /**
+     * Muestra un dialogo para que el jugador humano elija cartas de su mano para usar en combo
+     * (se queman: se descartan permanentemente) y devuelve la suma de su poder de combo.
+     */
+    private int preguntarCombo(CardPlayer p, String contexto) {
+        if (p.getHand().isEmpty()) {
+            return 0;
+        }
+        DefaultListModel<GameCard> modelo = new DefaultListModel<>();
+        for (GameCard c : p.getHand()) {
+            modelo.addElement(c);
+        }
+        JList<GameCard> lista = new JList<>(modelo);
+        lista.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+        lista.setCellRenderer((list, value, index, isSelected, cellHasFocus) -> {
+            JLabel lbl = new JLabel(value.getName() + "  -  Combo +" + value.getComboPower());
+            lbl.setOpaque(true);
+            lbl.setBackground(isSelected ? new Color(180, 220, 255) : Color.WHITE);
+            return lbl;
+        });
+        JScrollPane scroll = new JScrollPane(lista);
+        scroll.setPreferredSize(new Dimension(320, 150));
+        int resultado = JOptionPane.showConfirmDialog(this, scroll,
+                "¿Quemar cartas de tu mano en combo para " + contexto + "?", JOptionPane.OK_CANCEL_OPTION);
+        if (resultado != JOptionPane.OK_OPTION) {
+            return 0;
+        }
+        List<GameCard> seleccion = lista.getSelectedValuesList();
+        int total = 0;
+        for (GameCard c : seleccion) {
+            total += c.getComboPower();
+            p.getHand().remove(c);
+        }
+        return total;
+    }
+
+    /**
+     * IA simple de combo defensivo para la CPU: si el bloqueo por si solo no alcanza, intenta quemar
+     * cartas de su mano (empezando por las de mayor poder de combo) hasta cubrir la diferencia.
+     * Si no le alcanza con toda su mano, no arriesga cartas y deja que el bloqueo pierda igual.
+     */
+    private int cpuComboDefensivo(int poderAtaque, int poderDefActual) {
+        int faltante = poderAtaque - poderDefActual;
+        if (faltante <= 0 || cpu.getHand().isEmpty()) {
+            return 0;
+        }
+        List<GameCard> ordenadas = new ArrayList<>(cpu.getHand());
+        ordenadas.sort(Comparator.comparingInt(GameCard::getComboPower).reversed());
+        int acumulado = 0;
+        List<GameCard> usadas = new ArrayList<>();
+        for (GameCard c : ordenadas) {
+            if (acumulado >= faltante) {
+                break;
+            }
+            acumulado += c.getComboPower();
+            usadas.add(c);
+        }
+        if (acumulado < faltante) {
+            return 0; // no alcanza ni usando toda la mano: no arriesga las cartas
+        }
+        for (GameCard c : usadas) {
+            cpu.getHand().remove(c);
+        }
+        return acumulado;
+    }
+
     /** Determina que bloquea el defensor: IA simple para la CPU, dialogo para el humano. */
     private Object elegirBloqueador(CardPlayer defensor, int poderAtaque) {
         if (defensor == cpu) {
-            for (GameCard c : cpu.getBattleArea()) {
-                if (!c.isRested() && c.getEffectivePower(true) >= poderAtaque) {
-                    return c;
-                }
-            }
-            if (!cpu.getLeader().isRested() && cpu.getLeader().getDefensePower() >= poderAtaque) {
+            // El lider nunca es destruido en combate, asi que bloquear con el es siempre seguro.
+            if (!cpu.getLeader().isRested()) {
                 return cpu.getLeader();
             }
-            return null;
+            GameCard mejor = cpu.getBattleArea().stream()
+                    .filter(c -> !c.isRested())
+                    .max(Comparator.comparingInt(c -> c.getEffectivePower(true)))
+                    .orElse(null);
+            if (mejor == null) {
+                return null;
+            }
+            int totalComboDisponible = cpu.getHand().stream().mapToInt(GameCard::getComboPower).sum();
+            if (mejor.getEffectivePower(true) >= poderAtaque || mejor.getEffectivePower(true) + totalComboDisponible >= poderAtaque) {
+                return mejor;
+            }
+            return null; // no vale la pena arriesgar la carta si de todas formas no alcanza
         } else {
             List<Object> opciones = new ArrayList<>();
             List<String> etiquetas = new ArrayList<>();

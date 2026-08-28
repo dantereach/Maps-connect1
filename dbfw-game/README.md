@@ -23,6 +23,13 @@ Reglas inspiradas en Dragon Ball Fusion World:
   - **Guardian (Guardia)**: 20000 de poder, pero al **defender** (turno del oponente) sube a **25000**.
   - **Golpeador Doble (Double Strike)**: 35000 de poder, costo 4; si conecta sin ser bloqueada, hace **2 de daño** de vida en vez de 1.
 - En combate, si nadie bloquea un ataque, el defensor pierde vida (1, o 2 con Double Strike). Si se bloquea, gana la carta con mas poder (empate = ambas destruidas). Los lideres nunca son destruidos en combate.
+- **El lider roba 1 carta del mazo cada vez que ataca** (tanto el tuyo como el de la CPU).
+- **Cartas en combo**: al declarar un ataque (con el lider o con una carta) o al defenderte de un ataque, puedes quemar cartas de tu mano para sumar su "poder de combo" al choque. Las cartas usadas en combo se descartan permanentemente. Entre mas fuerte el efecto de la carta, menos poder de combo aporta:
+  - Basica: **+10000** de combo (sin efecto, la mejor para combo).
+  - Explorador (Roba 1): **+7000**.
+  - Guardian: **+5000**.
+  - Golpeador Doble: **+3000** (su efecto ya es muy fuerte).
+- Cada carta tiene un pequeño arte generado (un stickman con una pose distinta segun su tipo); el lider tiene su propio icono, con un aura dorada cuando esta transformado.
 - Gana quien deje al oponente sin vida (o sin cartas para robar).
 
 ## Modo stickman
