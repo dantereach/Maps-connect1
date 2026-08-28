@@ -24,7 +24,7 @@ Reglas inspiradas en Dragon Ball Fusion World:
   - **Golpeador Doble (Double Strike)**: 35000 de poder, costo 4; si conecta sin ser bloqueada, hace **2 de daño** de vida en vez de 1.
 - En combate, si nadie bloquea un ataque, el defensor pierde vida (1, o 2 con Double Strike) **solo si el poder del atacante es igual o mayor al poder del Lider defensor**; si el Lider tiene mas poder que el atacante, resiste el golpe automaticamente y no hay daño. Si se bloquea con una carta, gana la carta con mas poder (empate = ambas destruidas). Los lideres nunca son destruidos en combate.
 - **El lider roba 1 carta del mazo cada vez que ataca** (tanto el tuyo como el de la CPU).
-- **Cartas en combo**: al declarar un ataque (con el lider o con una carta) o al defenderte de un ataque, puedes quemar cartas de tu mano para sumar su "poder de combo" al choque. Las cartas usadas en combo se descartan permanentemente. Entre mas fuerte el efecto de la carta, menos poder de combo aporta:
+- **Cartas en combo**: al declarar un ataque (con el lider o con una carta), al bloquear con una carta, o incluso al resistir un ataque sin bloquear (reforzando a tu Lider), puedes quemar cartas de tu mano para sumar su "poder de combo" al choque. Las cartas usadas en combo se descartan permanentemente. Entre mas fuerte el efecto de la carta, menos poder de combo aporta:
   - Basica: **+10000** de combo (sin efecto, la mejor para combo).
   - Explorador (Roba 1): **+7000**.
   - Guardian: **+5000**.

@@ -403,6 +403,22 @@ public class CardBattleFrame extends JFrame {
 
         if (bloqueador == null) {
             int poderLider = defensor.getLeader().getDefensePower();
+
+            // Aunque no bloquees con una carta, puedes usar combo para reforzar la resistencia de tu Lider.
+            if (defensor == human) {
+                int combo = preguntarCombo(human, "resistir el golpe con tu Lider");
+                if (combo > 0) {
+                    poderLider += combo;
+                    appendLog("Usas combo para reforzar a tu Lider: +" + combo + " de poder (total " + poderLider + ").");
+                }
+            } else {
+                int combo = cpuComboDefensivo(poderAtaque, poderLider);
+                if (combo > 0) {
+                    poderLider += combo;
+                    appendLog("CPU usa combo para reforzar a su Lider: +" + combo + " de poder (total " + poderLider + ").");
+                }
+            }
+
             if (poderAtaque < poderLider) {
                 appendLog(nombreAtacante + " (PWR " + poderAtaque + ") no logra superar el poder del Lider de "
                         + defensor.getName() + " (PWR " + poderLider + "). No hay daño de vida.");
