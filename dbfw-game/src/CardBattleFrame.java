@@ -402,6 +402,12 @@ public class CardBattleFrame extends JFrame {
         Object bloqueador = elegirBloqueador(defensor, poderAtaque);
 
         if (bloqueador == null) {
+            int poderLider = defensor.getLeader().getDefensePower();
+            if (poderAtaque < poderLider) {
+                appendLog(nombreAtacante + " (PWR " + poderAtaque + ") no logra superar el poder del Lider de "
+                        + defensor.getName() + " (PWR " + poderLider + "). No hay daño de vida.");
+                return;
+            }
             int dano = doubleStrike ? 2 : 1;
             appendLog(nombreAtacante + " conecta sin bloqueo! " + defensor.getName() + " pierde " + dano + " de vida.");
             boolean derrotado = defensor.takeDamage(dano);
