@@ -1,3 +1,5 @@
+package dbfw.cardgame;
+
 import javax.swing.ImageIcon;
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -13,6 +15,14 @@ public final class CardArt {
     private CardArt() {
     }
 
+    /**
+     * Genera el icono en forma de stickman para una carta de batalla, con una pose distinta
+     * segun su tipo (robar, guardia, doble golpe o basica).
+     *
+     * @param type  tipo de carta (determina la pose dibujada)
+     * @param color color del stickman (para diferenciar cartas del jugador y de la CPU)
+     * @return icono generado, listo para usarse en un {@link javax.swing.JButton} o {@link javax.swing.JLabel}
+     */
     public static ImageIcon stickmanIcon(CardType type, Color color) {
         int w = 80, h = 90;
         BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
@@ -69,7 +79,13 @@ public final class CardArt {
         return new ImageIcon(img);
     }
 
-    /** Icono del lider: stickman mas grande, con capa; si esta transformado, se agrega un aura dorada. */
+    /**
+     * Icono del lider: stickman mas grande, con capa; si esta transformado, se agrega un aura dorada.
+     *
+     * @param color        color base del lider
+     * @param transformado true si el lider ya se transformo (vida <= 4), para dibujar el aura dorada
+     * @return icono generado del lider
+     */
     public static ImageIcon leaderIcon(Color color, boolean transformado) {
         int w = 90, h = 100;
         BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);

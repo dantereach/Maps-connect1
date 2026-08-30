@@ -1,3 +1,5 @@
+package dbfw.cardgame;
+
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
@@ -25,6 +27,17 @@ import java.util.Random;
  * Ventana principal del modo "juego de cartas", con reglas inspiradas en Dragon Ball Fusion World:
  * lideres con vida, poder en miles, transformacion del lider a baja vida, y cartas con
  * distintos efectos (robo, guardia, double strike).
+ * <p>
+ * Esta clase concentra toda la logica de la partida entre el jugador humano y la CPU:
+ * <ul>
+ *   <li>Construccion de la interfaz (paneles de lider, area de batalla, mano y log de eventos).</li>
+ *   <li>Turnos: inicio de turno, jugar cartas de la mano, atacar, usar la habilidad de potenciar
+ *       del lider y terminar el turno (lo que dispara el turno automatico de la CPU).</li>
+ *   <li>Resolucion de combate ({@link #resolverAtaque}): eleccion de bloqueador, cartas de combo
+ *       ofensivas/defensivas, comparacion de poder y aplicacion de daño (incluyendo Double Strike).</li>
+ *   <li>Inteligencia artificial simple de la CPU: que carta jugar, a que atacar, con que bloquear
+ *       y cuando usar combo.</li>
+ * </ul>
  */
 public class CardBattleFrame extends JFrame {
     private final CardPlayer human;
@@ -41,6 +54,11 @@ public class CardBattleFrame extends JFrame {
     private final JButton btnBoost = new JButton("Potenciar carta (+5000, 1 energia)");
     private final JButton btnEndTurn = new JButton("Terminar Turno");
 
+    /**
+     * Construye la ventana, crea a ambos jugadores con sus mazos y manos iniciales,
+     * arma todos los paneles de la interfaz y deja lista la partida para que el
+     * jugador humano tome su primer turno.
+     */
     public CardBattleFrame() {
         super("Dragon Ball Fusion World - Juego de Cartas");
 
@@ -92,6 +110,7 @@ public class CardBattleFrame extends JFrame {
         setLocationRelativeTo(null);
     }
 
+    /** Agrega una linea al area de texto del registro de eventos y hace scroll hasta el final. */
     private void appendLog(String texto) {
         log.append(texto + "\n");
         log.setCaretPosition(log.getDocument().getLength());
@@ -99,6 +118,7 @@ public class CardBattleFrame extends JFrame {
 
     // ---------------- RENDER ----------------
 
+    /** Reconstruye toda la interfaz (paneles de info, areas de batalla y mano) a partir del estado actual. */
     private void refreshUI() {
         infoCpu.setText("  Vida: " + cpu.getLife() + "   Energia: " + cpu.getEnergyAvailable() + "/" + cpu.getEnergyMax()
                 + "   Mano: " + cpu.getHand().size() + " cartas   Mazo: " + cpu.getDeck().size());
@@ -134,6 +154,11 @@ public class CardBattleFrame extends JFrame {
         btnEndTurn.setEnabled(!gameOver);
     }
 
+    /**
+     * Crea el boton que representa al lider de un jugador en su area de batalla.
+     * @param p                      jugador dueño del lider
+     * @param interactivoParaAtacar true si el boton debe permitir atacar con este lider (solo el humano)
+     */
     private JButton crearBotonLider(CardPlayer p, boolean interactivoParaAtacar) {
         LeaderCard l = p.getLeader();
         int poder = l == human.getLeader() ? l.getAttackPower(human.getHand().size()) : l.getDefensePower();
@@ -155,6 +180,7 @@ public class CardBattleFrame extends JFrame {
         return b;
     }
 
+    /** @return el texto descriptivo corto para el efecto de un tipo de carta. */
     private String etiquetaTipo(CardType tipo) {
         switch (tipo) {
             case DRAW: return "Roba 1";
@@ -164,6 +190,7 @@ public class CardBattleFrame extends JFrame {
         }
     }
 
+    /** @return el color de fondo asociado a cada tipo de carta, para diferenciarlas visualmente. */
     private Color colorTipo(CardType tipo) {
         switch (tipo) {
             case DRAW: return new Color(200, 255, 200);
@@ -211,6 +238,7 @@ public class CardBattleFrame extends JFrame {
 
     // ---------------- ACCIONES DEL JUGADOR ----------------
 
+    /** Juega una carta de la mano al area de batalla, si hay energia suficiente; aplica su efecto de robo si corresponde. */
     private void jugarCartaDeMano(GameCard c) {
         if (gameOver) {
             return;
@@ -232,6 +260,7 @@ public class CardBattleFrame extends JFrame {
         refreshUI();
     }
 
+    /** Maneja el clic en el boton de potenciar: pide al jugador elegir una carta propia y le suma +5000 de poder. */
     private void onBoost() {
         if (gameOver || human.getBattleArea().isEmpty()) {
             return;
@@ -252,6 +281,7 @@ public class CardBattleFrame extends JFrame {
         refreshUI();
     }
 
+    /** Ataca con el lider del jugador humano: calcula su poder (con bono de mano), permite combo y roba una carta. */
     private void atacarConLider() {
         if (gameOver || human.getLeader().isRested()) {
             return;
@@ -276,6 +306,7 @@ public class CardBattleFrame extends JFrame {
         refreshUI();
     }
 
+    /** Ataca con una carta del area de batalla del jugador humano (queda girada) y permite reforzarla con combo. */
     private void atacarConCarta(GameCard c) {
         if (gameOver || c.isRested()) {
             return;
@@ -294,6 +325,7 @@ public class CardBattleFrame extends JFrame {
         refreshUI();
     }
 
+    /** Termina el turno del jugador humano, ejecuta el turno completo de la CPU y arranca el siguiente turno humano. */
     private void onEndTurn() {
         if (gameOver) {
             return;
@@ -315,6 +347,10 @@ public class CardBattleFrame extends JFrame {
 
     // ---------------- TURNO DE LA CPU ----------------
 
+    /**
+     * Ejecuta el turno completo de la CPU: robar, jugar cartas mientras tenga energia,
+     * atacar con su lider (si no esta girado) y luego con cada carta sin girar de su area de batalla.
+     */
     private void turnoCpu() {
         appendLog("\n=== Turno de la CPU ===");
         cpu.startTurn();
@@ -599,6 +635,7 @@ public class CardBattleFrame extends JFrame {
         }
     }
 
+    /** Marca la partida como terminada, registra el resultado en el log y muestra el dialogo final. */
     private void declararDerrota(CardPlayer perdedor) {
         gameOver = true;
         String ganador = perdedor == human ? "CPU" : "Tu";

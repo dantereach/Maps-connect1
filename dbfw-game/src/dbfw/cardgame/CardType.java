@@ -1,5 +1,11 @@
+package dbfw.cardgame;
+
 /**
- * Tipos de carta de batalla disponibles en el mazo.
+ * Tipos de carta de batalla disponibles en el mazo del modo "juego de cartas".
+ * <p>
+ * Cada tipo define un poder base distinto y, opcionalmente, un efecto especial que se resuelve
+ * en  al jugar la carta o al usarla en combate. El poder de combo de cada
+ * tipo  es inversamente proporcional a la fuerza de su efecto.
  */
 public enum CardType {
     /** Carta basica, sin efecto especial. Poder 15000. */
