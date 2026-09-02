@@ -1,8 +1,11 @@
 package dbfw.cardgame;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import dbfw.cardgame.estructuras.Cola;
+import dbfw.cardgame.estructuras.ListaSimple;
+import dbfw.cardgame.estructuras.Pila;
+import dbfw.cardgame.excepciones.MazoVacioException;
+import dbfw.cardgame.excepciones.PilaVaciaException;
+import java.util.Random;
 
 /**
  * Estado completo de un jugador (humano o CPU) dentro del modo "juego de cartas": su lider,
@@ -11,18 +14,25 @@ import java.util.List;
  * Esta clase solo modela el estado y las reglas basicas de cada jugador (robar, gastar energia,
  * recibir daño, iniciar turno); la logica de combate entre dos jugadores y la interfaz grafica
  * viven en {@link CardBattleFrame}.
+ * <p>
+ * El mazo, la mano y el area de batalla se implementan con estructuras de datos propias en vez
+ * de {@code java.util.ArrayList}: el mazo es una {@link Pila} (se roba desde la cima, O(1)), la
+ * mano es una {@link Cola} (las cartas entran por el final al robarse) y el area de batalla es
+ * una {@link ListaSimple} (se recorre para mostrarla y se quita la carta destruida en combate).
  */
 public class CardPlayer {
     /** Nombre visible del jugador ("Tu" o "CPU"). */
     private final String name;
     /** Carta de Lider de este jugador. */
     private final LeaderCard leader;
-    /** Mazo de cartas por robar, en orden (la carta 0 es la siguiente en robarse). */
-    private final List<GameCard> deck = new ArrayList<>();
-    /** Cartas actualmente en la mano del jugador. */
-    private final List<GameCard> hand = new ArrayList<>();
-    /** Cartas que el jugador ya jugo y estan en su area de batalla (pueden atacar/bloquear). */
-    private final List<GameCard> battleArea = new ArrayList<>();
+    /** Mazo de cartas por robar: Pila propia (se roba siempre desde la cima). */
+    private final Pila<GameCard> deck = new Pila<>();
+    /** Cartas actualmente en la mano del jugador: Cola propia (entran por el final al robarse). */
+    private final Cola<GameCard> hand = new Cola<>();
+    /** Cartas que el jugador ya jugo y estan en su area de batalla: Lista Simple propia. */
+    private final ListaSimple<GameCard> battleArea = new ListaSimple<>();
+    /** Generador de numeros aleatorios usado para barajar el mazo manualmente. */
+    private final Random random = new Random();
     /** Vida restante del jugador (el juego termina cuando llega a 0). */
     private int life = 7;
     /** Energia disponible para gastar en el turno actual. */
@@ -51,18 +61,18 @@ public class CardPlayer {
         return leader;
     }
 
-    /** @return el mazo de cartas por robar (mutable). */
-    public List<GameCard> getDeck() {
+    /** @return el mazo de cartas por robar (Pila propia, mutable). */
+    public Pila<GameCard> getDeck() {
         return deck;
     }
 
-    /** @return las cartas actualmente en la mano del jugador (mutable). */
-    public List<GameCard> getHand() {
+    /** @return las cartas actualmente en la mano del jugador (Cola propia, mutable). */
+    public Cola<GameCard> getHand() {
         return hand;
     }
 
-    /** @return las cartas jugadas en el area de batalla del jugador (mutable). */
-    public List<GameCard> getBattleArea() {
+    /** @return las cartas jugadas en el area de batalla del jugador (Lista Simple propia, mutable). */
+    public ListaSimple<GameCard> getBattleArea() {
         return battleArea;
     }
 
@@ -108,40 +118,75 @@ public class CardPlayer {
         return true;
     }
 
-    /** Construye un mazo de 24 cartas balanceado entre los 4 tipos y lo mezcla. */
+    /**
+     * Construye un mazo de 24 cartas balanceado entre los 4 tipos, lo baraja con un
+     * Fisher-Yates manual (sin {@code Collections.shuffle}) y lo apila carta por carta en la
+     * Pila de robo.
+     */
     public void buildDeck() {
+        GameCard[] cartas = new GameCard[24];
+        int idx = 0;
         for (int i = 0; i < 6; i++) {
-            deck.add(new GameCard("Guerrero Basico " + (i + 1), 15000, 2, CardType.BASIC));
+            cartas[idx++] = new GameCard("Guerrero Basico " + (i + 1), 15000, 2, CardType.BASIC);
         }
         for (int i = 0; i < 6; i++) {
-            deck.add(new GameCard("Explorador " + (i + 1), 5000, 1, CardType.DRAW));
+            cartas[idx++] = new GameCard("Explorador " + (i + 1), 5000, 1, CardType.DRAW);
         }
         for (int i = 0; i < 6; i++) {
-            deck.add(new GameCard("Guardian " + (i + 1), 20000, 3, CardType.GUARD));
+            cartas[idx++] = new GameCard("Guardian " + (i + 1), 20000, 3, CardType.GUARD);
         }
         for (int i = 0; i < 6; i++) {
-            deck.add(new GameCard("Golpeador Doble " + (i + 1), 35000, 4, CardType.DOUBLE_STRIKE));
+            cartas[idx++] = new GameCard("Golpeador Doble " + (i + 1), 35000, 4, CardType.DOUBLE_STRIKE);
         }
-        Collections.shuffle(deck);
+        barajar(cartas);
+        for (GameCard carta : cartas) {
+            deck.apilar(carta);
+        }
     }
 
     /**
-     * Reparte la mano inicial robando cartas del mazo.
-     * @param amount cantidad de cartas a robar (se detiene antes si el mazo se vacia)
+     * Baraja un arreglo de cartas con el algoritmo de Fisher-Yates: recorre el arreglo de atras
+     * hacia adelante e intercambia cada posicion con una posicion aleatoria anterior (o igual).
+     * Se implementa a mano en vez de usar {@code Collections.shuffle} para no depender de las
+     * colecciones de la biblioteca estandar.
      */
-    public void drawInitialHand(int amount) {
-        for (int i = 0; i < amount && !deck.isEmpty(); i++) {
-            hand.add(deck.remove(0));
+    private void barajar(GameCard[] cartas) {
+        for (int i = cartas.length - 1; i > 0; i--) {
+            int j = random.nextInt(i + 1);
+            GameCard temp = cartas[i];
+            cartas[i] = cartas[j];
+            cartas[j] = temp;
         }
     }
 
-    /** Roba una carta del mazo a la mano. Devuelve false si el mazo esta vacio (derrota). */
-    public boolean drawCard() {
-        if (deck.isEmpty()) {
-            return false;
+    /**
+     * Reparte la mano inicial robando cartas del mazo. Si el mazo se queda sin cartas antes de
+     * completar la cantidad pedida, se detiene silenciosamente (no deberia ocurrir con un mazo
+     * de 24 cartas y una mano inicial de 5).
+     * @param amount cantidad de cartas a robar
+     */
+    public void drawInitialHand(int amount) {
+        for (int i = 0; i < amount; i++) {
+            try {
+                drawCard();
+            } catch (MazoVacioException e) {
+                break;
+            }
         }
-        hand.add(deck.remove(0));
-        return true;
+    }
+
+    /**
+     * Roba una carta: la saca de la cima del mazo (Pila) y la agrega al final de la mano (Cola).
+     * @throws MazoVacioException si el mazo ya no tiene cartas; en las reglas de Fusion World,
+     *                             esto significa la derrota inmediata de este jugador.
+     */
+    public void drawCard() throws MazoVacioException {
+        try {
+            GameCard carta = deck.desapilar();
+            hand.encolar(carta);
+        } catch (PilaVaciaException e) {
+            throw new MazoVacioException(name + " se quedo sin cartas en el mazo para robar.", e);
+        }
     }
 
     /** Inicio de turno: gana energia, se recupera toda la energia y se enderezan cartas y lider. */

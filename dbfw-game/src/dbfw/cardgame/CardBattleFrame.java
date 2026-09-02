@@ -1,5 +1,8 @@
 package dbfw.cardgame;
 
+import dbfw.cardgame.estructuras.ListaCircular;
+import dbfw.cardgame.estructuras.ListaDoble;
+import dbfw.cardgame.excepciones.MazoVacioException;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
@@ -19,7 +22,6 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 
@@ -45,6 +47,19 @@ public class CardBattleFrame extends JFrame {
     private final Random random = new Random();
     private boolean gameOver = false;
 
+    /**
+     * Ciclo de turnos entre el jugador humano y la CPU: Lista Circular propia (ver
+     * {@link ListaCircular}) que se rota con {@code avanzar()} en cada cambio de turno, en vez
+     * de alternar manualmente entre dos variables.
+     */
+    private final ListaCircular<CardPlayer> ordenTurnos = new ListaCircular<>();
+    /**
+     * Historial navegable de jugadas de la partida: Lista Doblemente Enlazada propia (ver
+     * {@link ListaDoble}) que permite recorrer los eventos hacia atras y hacia adelante con un
+     * cursor, a diferencia del registro de texto de solo lectura de {@link #log}.
+     */
+    private final ListaDoble<String> historial = new ListaDoble<>();
+
     private final JLabel infoCpu = new JLabel();
     private final JLabel infoHuman = new JLabel();
     private final JPanel cpuBattlePanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 8));
@@ -53,6 +68,7 @@ public class CardBattleFrame extends JFrame {
     private final JTextArea log = new JTextArea(10, 60);
     private final JButton btnBoost = new JButton("Potenciar carta (+5000, 1 energia)");
     private final JButton btnEndTurn = new JButton("Terminar Turno");
+    private final JButton btnHistorial = new JButton("Ver Historial");
 
     /**
      * Construye la ventana, crea a ambos jugadores con sus mazos y manos iniciales,
@@ -60,7 +76,7 @@ public class CardBattleFrame extends JFrame {
      * jugador humano tome su primer turno.
      */
     public CardBattleFrame() {
-        super("Dragon Ball Fusion World - Juego de Cartas");
+        super("Tecmilenio Heroes - Juego de Cartas");
 
         human = new CardPlayer("Tu", LeaderCard.crearLiderAzul());
         cpu = new CardPlayer("CPU", LeaderCard.crearLiderCpu());
@@ -69,6 +85,8 @@ public class CardBattleFrame extends JFrame {
         human.drawInitialHand(5);
         cpu.drawInitialHand(5);
         human.startTurn();
+        ordenTurnos.agregar(human);
+        ordenTurnos.agregar(cpu);
 
         setLayout(new BorderLayout(5, 5));
 
@@ -95,13 +113,15 @@ public class CardBattleFrame extends JFrame {
         JPanel controlPanel = new JPanel(new FlowLayout());
         btnBoost.addActionListener(e -> onBoost());
         btnEndTurn.addActionListener(e -> onEndTurn());
+        btnHistorial.addActionListener(e -> mostrarHistorial());
         controlPanel.add(btnBoost);
         controlPanel.add(btnEndTurn);
+        controlPanel.add(btnHistorial);
         bottomContainer.add(controlPanel);
 
         add(bottomContainer, BorderLayout.SOUTH);
 
-        appendLog("=== DRAGON BALL FUSION WORLD - Juego de Cartas ===");
+        appendLog("=== TECMILENIO HEROES - Juego de Cartas ===");
         appendLog("Haz clic en una carta de tu mano para jugarla, o en una carta/lider de tu area para atacar.");
         refreshUI();
 
@@ -110,10 +130,45 @@ public class CardBattleFrame extends JFrame {
         setLocationRelativeTo(null);
     }
 
-    /** Agrega una linea al area de texto del registro de eventos y hace scroll hasta el final. */
+    /**
+     * Agrega una linea al area de texto del registro de eventos (para lectura corrida) y
+     * tambien la agrega al historial navegable ({@link #historial}, Lista Doble propia).
+     */
     private void appendLog(String texto) {
         log.append(texto + "\n");
         log.setCaretPosition(log.getDocument().getLength());
+        historial.agregarFinal(texto);
+    }
+
+    /**
+     * Abre un dialogo que permite navegar el historial de jugadas (Lista Doblemente Enlazada)
+     * hacia atras y hacia adelante usando su cursor interno, mostrando un evento a la vez.
+     */
+    private void mostrarHistorial() {
+        if (historial.esVacia()) {
+            JOptionPane.showMessageDialog(this, "Aun no hay jugadas en el historial.");
+            return;
+        }
+        JLabel etiqueta = new JLabel("<html><center>" + historial.actual() + "</center></html>", SwingConstants.CENTER);
+        etiqueta.setPreferredSize(new Dimension(420, 60));
+        JButton anterior = new JButton("< Anterior");
+        JButton siguiente = new JButton("Siguiente >");
+        anterior.addActionListener(e -> {
+            historial.irAnterior();
+            etiqueta.setText("<html><center>" + historial.actual() + "</center></html>");
+        });
+        siguiente.addActionListener(e -> {
+            historial.irSiguiente();
+            etiqueta.setText("<html><center>" + historial.actual() + "</center></html>");
+        });
+        JPanel panelNav = new JPanel(new BorderLayout());
+        panelNav.add(etiqueta, BorderLayout.CENTER);
+        JPanel botones = new JPanel(new FlowLayout());
+        botones.add(anterior);
+        botones.add(siguiente);
+        panelNav.add(botones, BorderLayout.SOUTH);
+        JOptionPane.showMessageDialog(this, panelNav, "Historial de jugadas (" + historial.tamano() + " eventos)",
+                JOptionPane.PLAIN_MESSAGE);
     }
 
     // ---------------- RENDER ----------------
@@ -121,9 +176,9 @@ public class CardBattleFrame extends JFrame {
     /** Reconstruye toda la interfaz (paneles de info, areas de batalla y mano) a partir del estado actual. */
     private void refreshUI() {
         infoCpu.setText("  Vida: " + cpu.getLife() + "   Energia: " + cpu.getEnergyAvailable() + "/" + cpu.getEnergyMax()
-                + "   Mano: " + cpu.getHand().size() + " cartas   Mazo: " + cpu.getDeck().size());
+                + "   Mano: " + cpu.getHand().tamano() + " cartas   Mazo: " + cpu.getDeck().tamano());
         infoHuman.setText("  Vida: " + human.getLife() + "   Energia: " + human.getEnergyAvailable() + "/" + human.getEnergyMax()
-                + "   Mano: " + human.getHand().size() + " cartas   Mazo: " + human.getDeck().size());
+                + "   Mano: " + human.getHand().tamano() + " cartas   Mazo: " + human.getDeck().tamano());
 
         cpuBattlePanel.removeAll();
         cpuBattlePanel.add(crearBotonLider(cpu, false));
@@ -149,7 +204,7 @@ public class CardBattleFrame extends JFrame {
         handPanel.repaint();
 
         boolean puedePotenciar = human.getLeader().canBoost() && !human.getLeader().isBoostUsedThisTurn()
-                && human.getEnergyAvailable() >= human.getLeader().getBoostCost() && !human.getBattleArea().isEmpty();
+                && human.getEnergyAvailable() >= human.getLeader().getBoostCost() && !human.getBattleArea().esVacia();
         btnBoost.setEnabled(!gameOver && puedePotenciar);
         btnEndTurn.setEnabled(!gameOver);
     }
@@ -161,7 +216,7 @@ public class CardBattleFrame extends JFrame {
      */
     private JButton crearBotonLider(CardPlayer p, boolean interactivoParaAtacar) {
         LeaderCard l = p.getLeader();
-        int poder = l == human.getLeader() ? l.getAttackPower(human.getHand().size()) : l.getDefensePower();
+        int poder = l == human.getLeader() ? l.getAttackPower(human.getHand().tamano()) : l.getDefensePower();
         String texto = "<html><center>" + l.getName() + "<br>PWR " + poder
                 + (l.isTransformed() ? "<br>(Transformado)" : "") + (l.isRested() ? "<br>[girado]" : "") + "</center></html>";
         JButton b = new JButton(texto);
@@ -247,25 +302,27 @@ public class CardBattleFrame extends JFrame {
             appendLog("No tienes suficiente energia para jugar " + c.getName() + ".");
             return;
         }
-        human.getHand().remove(c);
-        human.getBattleArea().add(c);
+        human.getHand().remover(c);
+        human.getBattleArea().agregar(c);
         appendLog("Juegas " + c.getName() + " (PWR " + c.getEffectivePower(false) + ").");
         if (c.drawsOnPlay()) {
-            if (!human.drawCard()) {
+            try {
+                human.drawCard();
+                appendLog("Robas 1 carta del mazo.");
+            } catch (MazoVacioException e) {
                 declararDerrota(human);
                 return;
             }
-            appendLog("Robas 1 carta del mazo.");
         }
         refreshUI();
     }
 
     /** Maneja el clic en el boton de potenciar: pide al jugador elegir una carta propia y le suma +5000 de poder. */
     private void onBoost() {
-        if (gameOver || human.getBattleArea().isEmpty()) {
+        if (gameOver || human.getBattleArea().esVacia()) {
             return;
         }
-        GameCard[] opciones = human.getBattleArea().toArray(new GameCard[0]);
+        GameCard[] opciones = human.getBattleArea().comoListaTemporal().toArray(new GameCard[0]);
         GameCard elegido = (GameCard) JOptionPane.showInputDialog(this, "Elige la carta a potenciar (+5000):",
                 "Potenciar", JOptionPane.PLAIN_MESSAGE, null, opciones, opciones[0]);
         if (elegido == null) {
@@ -286,7 +343,7 @@ public class CardBattleFrame extends JFrame {
         if (gameOver || human.getLeader().isRested()) {
             return;
         }
-        int poder = human.getLeader().getAttackPower(human.getHand().size());
+        int poder = human.getLeader().getAttackPower(human.getHand().tamano());
         human.getLeader().setRested(true);
         appendLog("Tu lider ataca con " + poder + " de poder.");
 
@@ -296,11 +353,13 @@ public class CardBattleFrame extends JFrame {
             appendLog("Usas combo: +" + combo + " de poder (total " + poder + ").");
         }
 
-        if (!human.drawCard()) {
+        try {
+            human.drawCard();
+            appendLog("Tu lider roba 1 carta al atacar.");
+        } catch (MazoVacioException e) {
             declararDerrota(human);
             return;
         }
-        appendLog("Tu lider roba 1 carta al atacar.");
 
         resolverAtaque(human, cpu, poder, false, "Tu Lider");
         refreshUI();
@@ -332,14 +391,18 @@ public class CardBattleFrame extends JFrame {
         }
         btnEndTurn.setEnabled(false);
         appendLog("--- Terminas tu turno ---");
+        ordenTurnos.avanzar(); // el ciclo de turnos (Lista Circular) rota: ahora le toca a la CPU
         turnoCpu();
         if (!gameOver) {
+            ordenTurnos.avanzar(); // el ciclo vuelve a rotar: le toca de nuevo al humano
             human.startTurn();
-            if (!human.drawCard()) {
+            try {
+                human.drawCard();
+            } catch (MazoVacioException e) {
                 declararDerrota(human);
                 return;
             }
-            appendLog("\n=== Tu turno ===");
+            appendLog("\n=== Tu turno (" + ordenTurnos.actual().getName() + ") ===");
             appendLog("Robas 1 carta.");
             refreshUI();
         }
@@ -354,24 +417,32 @@ public class CardBattleFrame extends JFrame {
     private void turnoCpu() {
         appendLog("\n=== Turno de la CPU ===");
         cpu.startTurn();
-        if (!cpu.drawCard()) {
+        try {
+            cpu.drawCard();
+        } catch (MazoVacioException e) {
             declararDerrota(cpu);
             return;
         }
 
-        // La CPU juega cartas mientras tenga energia suficiente.
+        // La CPU juega cartas mientras tenga energia suficiente. Se itera directamente sobre la
+        // Cola de la mano: como se rompe el bucle for-each apenas se muta la mano (remover/agregar),
+        // el iterador nunca se vuelve a usar despues de la mutacion, asi que no hace falta copiarla.
         boolean jugoAlgo = true;
         while (jugoAlgo) {
             jugoAlgo = false;
-            for (GameCard c : new ArrayList<>(cpu.getHand())) {
+            for (GameCard c : cpu.getHand()) {
                 if (c.getCost() <= cpu.getEnergyAvailable()) {
                     cpu.spendEnergy(c.getCost());
-                    cpu.getHand().remove(c);
-                    cpu.getBattleArea().add(c);
+                    cpu.getHand().remover(c);
+                    cpu.getBattleArea().agregar(c);
                     appendLog("CPU juega " + c.getName() + " (PWR " + c.getEffectivePower(false) + ").");
-                    if (c.drawsOnPlay() && !cpu.drawCard()) {
-                        declararDerrota(cpu);
-                        return;
+                    if (c.drawsOnPlay()) {
+                        try {
+                            cpu.drawCard();
+                        } catch (MazoVacioException e) {
+                            declararDerrota(cpu);
+                            return;
+                        }
                     }
                     jugoAlgo = true;
                     break;
@@ -386,17 +457,19 @@ public class CardBattleFrame extends JFrame {
             cpu.getLeader().setRested(true);
             appendLog("El Lider CPU ataca con " + poder + " de poder.");
             poder += cpuComboOfensivoOportunista();
-            if (!cpu.drawCard()) {
+            try {
+                cpu.drawCard();
+                appendLog("El Lider CPU roba 1 carta al atacar.");
+            } catch (MazoVacioException e) {
                 declararDerrota(cpu);
                 return;
             }
-            appendLog("El Lider CPU roba 1 carta al atacar.");
             resolverAtaque(cpu, human, poder, false, "Lider CPU");
             if (gameOver) {
                 return;
             }
         }
-        for (GameCard c : new ArrayList<>(cpu.getBattleArea())) {
+        for (GameCard c : cpu.getBattleArea()) {
             if (!c.isRested()) {
                 int poder = c.getEffectivePower(false);
                 c.setRested(true);
@@ -416,14 +489,19 @@ public class CardBattleFrame extends JFrame {
      * con menor poder de combo (para no gastar sus mejores comodines) y suma ese poder al ataque.
      */
     private int cpuComboOfensivoOportunista() {
-        if (cpu.getHand().isEmpty() || random.nextDouble() > 0.3) {
+        if (cpu.getHand().esVacia() || random.nextDouble() > 0.3) {
             return 0;
         }
-        GameCard elegido = cpu.getHand().stream().min(Comparator.comparingInt(GameCard::getComboPower)).orElse(null);
+        GameCard elegido = null;
+        for (GameCard c : cpu.getHand()) {
+            if (elegido == null || c.getComboPower() < elegido.getComboPower()) {
+                elegido = c;
+            }
+        }
         if (elegido == null) {
             return 0;
         }
-        cpu.getHand().remove(elegido);
+        cpu.getHand().remover(elegido);
         appendLog("CPU quema " + elegido.getName() + " en combo (+" + elegido.getComboPower() + " de poder).");
         return elegido.getComboPower();
     }
@@ -508,12 +586,12 @@ public class CardBattleFrame extends JFrame {
             c.setRested(true);
             appendLog(defensor.getName() + " bloquea con " + c.getName() + " (PWR " + poderDef + ").");
             if (poderAtaque > poderDef) {
-                defensor.getBattleArea().remove(c);
+                defensor.getBattleArea().remover(c);
                 appendLog(c.getName() + " es destruida.");
             } else if (poderAtaque < poderDef) {
                 appendLog("El ataque es repelido; el atacante no logra destruir a " + c.getName() + ".");
             } else {
-                defensor.getBattleArea().remove(c);
+                defensor.getBattleArea().remover(c);
                 appendLog("Empate de poder: " + c.getName() + " es destruida.");
             }
         }
@@ -524,7 +602,7 @@ public class CardBattleFrame extends JFrame {
      * (se queman: se descartan permanentemente) y devuelve la suma de su poder de combo.
      */
     private int preguntarCombo(CardPlayer p, String contexto) {
-        if (p.getHand().isEmpty()) {
+        if (p.getHand().esVacia()) {
             return 0;
         }
         DefaultListModel<GameCard> modelo = new DefaultListModel<>();
@@ -550,7 +628,7 @@ public class CardBattleFrame extends JFrame {
         int total = 0;
         for (GameCard c : seleccion) {
             total += c.getComboPower();
-            p.getHand().remove(c);
+            p.getHand().remover(c);
         }
         return total;
     }
@@ -559,28 +637,36 @@ public class CardBattleFrame extends JFrame {
      * IA simple de combo defensivo para la CPU: si el bloqueo por si solo no alcanza, intenta quemar
      * cartas de su mano (empezando por las de mayor poder de combo) hasta cubrir la diferencia.
      * Si no le alcanza con toda su mano, no arriesga cartas y deja que el bloqueo pierda igual.
+     * Implementado con una seleccion voraz manual (sin Collections.sort) sobre un arreglo temporal.
      */
     private int cpuComboDefensivo(int poderAtaque, int poderDefActual) {
         int faltante = poderAtaque - poderDefActual;
-        if (faltante <= 0 || cpu.getHand().isEmpty()) {
+        if (faltante <= 0 || cpu.getHand().esVacia()) {
             return 0;
         }
-        List<GameCard> ordenadas = new ArrayList<>(cpu.getHand());
-        ordenadas.sort(Comparator.comparingInt(GameCard::getComboPower).reversed());
+        GameCard[] disponibles = cpu.getHand().comoListaTemporal().toArray(new GameCard[0]);
+        boolean[] usada = new boolean[disponibles.length];
         int acumulado = 0;
-        List<GameCard> usadas = new ArrayList<>();
-        for (GameCard c : ordenadas) {
-            if (acumulado >= faltante) {
-                break;
+        while (acumulado < faltante) {
+            int mejorIdx = -1;
+            for (int i = 0; i < disponibles.length; i++) {
+                if (!usada[i] && (mejorIdx == -1 || disponibles[i].getComboPower() > disponibles[mejorIdx].getComboPower())) {
+                    mejorIdx = i;
+                }
             }
-            acumulado += c.getComboPower();
-            usadas.add(c);
+            if (mejorIdx == -1) {
+                break; // ya no quedan cartas disponibles en la mano
+            }
+            usada[mejorIdx] = true;
+            acumulado += disponibles[mejorIdx].getComboPower();
         }
         if (acumulado < faltante) {
             return 0; // no alcanza ni usando toda la mano: no arriesga las cartas
         }
-        for (GameCard c : usadas) {
-            cpu.getHand().remove(c);
+        for (int i = 0; i < disponibles.length; i++) {
+            if (usada[i]) {
+                cpu.getHand().remover(disponibles[i]);
+            }
         }
         return acumulado;
     }
@@ -592,14 +678,19 @@ public class CardBattleFrame extends JFrame {
             if (!cpu.getLeader().isRested()) {
                 return cpu.getLeader();
             }
-            GameCard mejor = cpu.getBattleArea().stream()
-                    .filter(c -> !c.isRested())
-                    .max(Comparator.comparingInt(c -> c.getEffectivePower(true)))
-                    .orElse(null);
+            GameCard mejor = null;
+            for (GameCard c : cpu.getBattleArea()) {
+                if (!c.isRested() && (mejor == null || c.getEffectivePower(true) > mejor.getEffectivePower(true))) {
+                    mejor = c;
+                }
+            }
             if (mejor == null) {
                 return null;
             }
-            int totalComboDisponible = cpu.getHand().stream().mapToInt(GameCard::getComboPower).sum();
+            int totalComboDisponible = 0;
+            for (GameCard c : cpu.getHand()) {
+                totalComboDisponible += c.getComboPower();
+            }
             if (mejor.getEffectivePower(true) >= poderAtaque || mejor.getEffectivePower(true) + totalComboDisponible >= poderAtaque) {
                 return mejor;
             }
