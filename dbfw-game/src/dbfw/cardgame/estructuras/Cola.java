@@ -6,13 +6,13 @@ import java.util.NoSuchElementException;
 
 /**
  * Implementacion propia de una Cola (estructura FIFO - "First In, First Out") mediante nodos
- * enlazados, sin usar {@code java.util.Queue} ni {@code java.util.LinkedList}.
+ * enlazados.
  * <p>
  * Se usa para representar la <b>mano</b> de cada jugador: las cartas robadas se agregan al
- * final con {@link #encolar(Object)}. Como en este juego el jugador puede jugar o quemar en
+ * final con. Como en este juego el jugador puede jugar o quemar en
  * combo cualquier carta de su mano (no solo la primera que robo), se agrega
- * {@link #remover(Object)} como una extension practica que busca y quita un elemento especifico
- * recorriendo la cola nodo por nodo; {@link #iterator()} permite recorrerla para mostrar todas
+ * como una extension practica que busca y quita un elemento especifico
+ * recorriendo la cola nodo por nodo; permite recorrerla para mostrar todas
  * las cartas en la interfaz sin exponer los nodos internos.
  *
  * @param <T> tipo de elemento que almacena la cola
@@ -29,7 +29,7 @@ public class Cola<T> implements Iterable<T> {
         }
     }
 
-    /** Nodo al frente de la cola (el proximo en salir con {@link #desencolar()}). */
+    /** Nodo al frente de la cola. */
     private Nodo<T> frente;
     /** Nodo al final de la cola (el ultimo en entrar). */
     private Nodo<T> ultimo;
@@ -77,7 +77,7 @@ public class Cola<T> implements Iterable<T> {
     }
 
     /**
-     * Busca la primera aparicion de un elemento (comparado con {@link Object#equals}) recorriendo
+     * Busca la primera aparicion de un elemento recorriendo
      * la cola nodo por nodo, sin importar si esta al frente o mas atras, y lo quita reconectando
      * los nodos vecinos. Se usa para jugar o quemar en combo una carta especifica de la mano.
      *

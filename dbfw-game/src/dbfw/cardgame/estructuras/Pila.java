@@ -7,10 +7,10 @@ import dbfw.cardgame.excepciones.PilaVaciaException;
  * enlazados, sin usar {@code java.util.Stack} ni ninguna coleccion de la biblioteca estandar.
  * <p>
  * Se usa para representar el <b>mazo</b> de cada jugador: el mazo ya mezclado se apila carta
- * por carta al armarlo, y cada carta que se roba sale de la cima con {@link #desapilar()}.
+ * por carta al armarlo, y cada carta que se roba sale de la cima.
  * <p>
  * Todas las operaciones son O(1) porque solo se manipula el puntero a la cima, sin recorrer ni
- * desplazar el resto de los elementos; esa es la diferencia real frente a un {@code ArrayList},
+ * desplazar el resto de los elementos; esa es la diferencia real,
  * donde quitar del inicio del arreglo obliga a correr todos los elementos restantes (O(n)).
  *
  * @param <T> tipo de elemento que almacena la pila

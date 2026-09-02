@@ -8,10 +8,10 @@ import java.util.NoSuchElementException;
  * siguiente) sin usar {@code java.util.LinkedList}.
  * <p>
  * Se usa para el <b>historial de jugadas</b> de la partida: cada evento relevante (jugar una
- * carta, atacar, bloquear, usar combo, etc.) se agrega al final con {@link #agregarFinal(Object)},
+ * carta, atacar, bloquear, usar combo, etc.) se agrega al final con },
  * y un cursor interno permite navegar el historial hacia atras y hacia adelante con
- * {@link #irAnterior()} / {@link #irSiguiente()} — algo que un simple registro de texto
- * (como el {@code JTextArea} del log de la partida) no puede ofrecer, porque solo se puede leer
+ * algo que un simple registro de texto
+ * del log de la partida) no puede ofrecer, porque solo se puede leer
  * de corrido y no conserva un punto de lectura navegable.
  *
  * @param <T> tipo de elemento que almacena la lista (en este juego, mensajes de texto)

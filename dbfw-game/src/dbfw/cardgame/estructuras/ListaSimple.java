@@ -7,11 +7,11 @@ import java.util.NoSuchElementException;
 
 /**
  * Implementacion propia de una Lista Simple (enlazada, con nodos que solo apuntan "hacia
- * adelante") sin usar {@code java.util.ArrayList} ni {@code java.util.LinkedList}.
+ * adelante").
  * <p>
  * Se usa para representar el <b>area de batalla</b> de cada jugador: las cartas jugadas se
- * agregan al final con {@link #agregar(Object)} y se quitan cuando son destruidas en combate
- * con {@link #remover(Object)}, recorriendo la lista nodo por nodo hasta encontrarlas.
+ * agregan al final con  y se quitan cuando son destruidas en combate
+ * con , recorriendo la lista nodo por nodo hasta encontrarlas.
  *
  * @param <T> tipo de elemento que almacena la lista
  */
@@ -47,7 +47,7 @@ public class ListaSimple<T> implements Iterable<T> {
     }
 
     /**
-     * Busca la primera aparicion de un elemento (comparado con {@link Object#equals}) recorriendo
+     * Busca la primera aparicion de un elemento (comparado con recorriendo
      * la lista nodo por nodo y lo quita reconectando los nodos vecinos.
      *
      * @param valor elemento a buscar y quitar
@@ -86,9 +86,9 @@ public class ListaSimple<T> implements Iterable<T> {
     }
 
     /**
-     * Crea una copia temporal de solo lectura como {@link List}, util unicamente para
+     * Crea una copia temporal de solo lectura, util unicamente para
      * interoperar con componentes de Swing que exigen una lista/arreglo estandar (por ejemplo,
-     * las opciones de un {@code JOptionPane}). El area de batalla real sigue almacenada en esta
+     * las opciones. El area de batalla real sigue almacenada en esta
      * lista enlazada; la copia no reemplaza ni se reutiliza como almacenamiento del juego.
      */
     public List<T> comoListaTemporal() {

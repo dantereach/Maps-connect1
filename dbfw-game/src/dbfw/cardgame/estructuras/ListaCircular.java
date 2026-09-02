@@ -7,8 +7,8 @@ package dbfw.cardgame.estructuras;
  * <p>
  * Se usa para representar el <b>ciclo de turnos</b> entre el jugador humano y la CPU: en vez de
  * alternar manualmente entre dos variables, se arma un anillo con ambos jugadores y se rota con
- * {@link #avanzar()} cada vez que termina el turno de alguien; en todo momento se puede
- * consultar de quien es el turno con {@link #actual()}. Al tener solo dos elementos, el anillo
+ *  cada vez que termina el turno de alguien; en todo momento se puede
+ * consultar de quien es el turno con . Al tener solo dos elementos, el anillo
  * siempre vuelve exactamente al mismo jugador que empezo, mostrando el ciclo que rota en cada
  * ronda de la partida.
  *
