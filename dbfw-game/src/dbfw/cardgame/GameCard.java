@@ -64,6 +64,37 @@ public class GameCard {
         return comboPower;
     }
 
+    /**
+     * Prioridad de resolucion del efecto de esta carta, usada por la Cola de Prioridad propia
+     * ({@code ColaPrioridad}) para decidir en que orden se resuelven los efectos de las cartas
+     * jugadas en un mismo turno: cuanto mas fuerte la habilidad especial, mayor la prioridad, y
+     * por lo tanto se resuelve antes, sin importar el orden en que se jugaron las cartas.
+     *
+     * @return 3 para Double Strike (habilidad fuerte), 2 para Guardia (media), 1 para Robo (leve)
+     *         y 0 para las cartas basicas (sin habilidad especial).
+     */
+    public int getPrioridadEfecto() {
+        switch (type) {
+            case DOUBLE_STRIKE: return 3;
+            case GUARD: return 2;
+            case DRAW: return 1;
+            default: return 0;
+        }
+    }
+
+    /**
+     * Crea una copia nueva e independiente de esta carta (misma estadisticas base, mismo tipo)
+     * con un numero agregado al nombre. Se usa junto con {@link dbfw.cardgame.CatalogoCartas}
+     * para construir varias copias numeradas de una misma familia de cartas (ej. "Explorador 1",
+     * "Explorador 2", ...) a partir de una sola plantilla indexada por nombre en la tabla hash.
+     *
+     * @param numero numero a agregar al nombre de la copia
+     * @return una nueva carta independiente con el mismo nombre base, poder, costo y tipo
+     */
+    public GameCard crearCopiaNumerada(int numero) {
+        return new GameCard(name + " " + numero, basePower, cost, type);
+    }
+
     /** @return el nombre visible de la carta. */
     public String getName() {
         return name;

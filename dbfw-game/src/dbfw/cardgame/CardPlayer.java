@@ -1,6 +1,7 @@
 package dbfw.cardgame;
 
 import dbfw.cardgame.estructuras.Cola;
+import dbfw.cardgame.estructuras.ColaPrioridad;
 import dbfw.cardgame.estructuras.ListaSimple;
 import dbfw.cardgame.estructuras.Pila;
 import dbfw.cardgame.excepciones.MazoVacioException;
@@ -19,6 +20,9 @@ import java.util.Random;
  * de {@code java.util.ArrayList}: el mazo es una {@link Pila} (se roba desde la cima, O(1)), la
  * mano es una {@link Cola} (las cartas entran por el final al robarse) y el area de batalla es
  * una {@link ListaSimple} (se recorre para mostrarla y se quita la carta destruida en combate).
+ * Ademas, los efectos de las cartas jugadas se encolan en una {@link ColaPrioridad} propia para
+ * resolverse en orden de prioridad, y el mazo se construye buscando cada familia de cartas por
+ * nombre en el {@link CatalogoCartas} (tabla hash).
  */
 public class CardPlayer {
     /** Nombre visible del jugador ("Tu" o "CPU"). */
@@ -31,6 +35,12 @@ public class CardPlayer {
     private final Cola<GameCard> hand = new Cola<>();
     /** Cartas que el jugador ya jugo y estan en su area de batalla: Lista Simple propia. */
     private final ListaSimple<GameCard> battleArea = new ListaSimple<>();
+    /**
+     * Efectos de cartas jugadas este turno que aun no se han resuelto: Cola de Prioridad propia.
+     * Las cartas con habilidad especial mas fuerte se resuelven antes que las demas, sin
+     * importar el orden en que se jugaron (ver {@link GameCard#getPrioridadEfecto()}).
+     */
+    private final ColaPrioridad<GameCard> efectosPendientes = new ColaPrioridad<>();
     /** Generador de numeros aleatorios usado para barajar el mazo manualmente. */
     private final Random random = new Random();
     /** Vida restante del jugador (el juego termina cuando llega a 0). */
@@ -76,6 +86,23 @@ public class CardPlayer {
         return battleArea;
     }
 
+    /** @return la cola de prioridad de efectos de cartas jugadas este turno que faltan por resolver. */
+    public ColaPrioridad<GameCard> getEfectosPendientes() {
+        return efectosPendientes;
+    }
+
+    /**
+     * Encola el efecto de una carta recien jugada para resolverse mas tarde, en orden de
+     * prioridad (ver {@link GameCard#getPrioridadEfecto()}) en vez de en el orden en que se
+     * jugo: las cartas con habilidad especial mas fuerte se resuelven primero, sin importar
+     * cuando se jugaron.
+     *
+     * @param carta carta recien jugada cuyo efecto debe resolverse
+     */
+    public void encolarEfectoDeCarta(GameCard carta) {
+        efectosPendientes.encolar(carta, carta.getPrioridadEfecto());
+    }
+
     /** @return la vida restante del jugador. */
     public int getLife() {
         return life;
@@ -119,29 +146,40 @@ public class CardPlayer {
     }
 
     /**
-     * Construye un mazo de 24 cartas balanceado entre los 4 tipos, lo baraja con un
-     * Fisher-Yates manual (sin {@code Collections.shuffle}) y lo apila carta por carta en la
-     * Pila de robo.
+     * Construye un mazo de 24 cartas balanceado entre las 4 familias del {@link CatalogoCartas}
+     * (tabla hash indexada por nombre), lo baraja con un Fisher-Yates manual (sin
+     * {@code Collections.shuffle}) y lo apila carta por carta en la Pila de robo.
      */
     public void buildDeck() {
         GameCard[] cartas = new GameCard[24];
         int idx = 0;
-        for (int i = 0; i < 6; i++) {
-            cartas[idx++] = new GameCard("Guerrero Basico " + (i + 1), 15000, 2, CardType.BASIC);
-        }
-        for (int i = 0; i < 6; i++) {
-            cartas[idx++] = new GameCard("Explorador " + (i + 1), 5000, 1, CardType.DRAW);
-        }
-        for (int i = 0; i < 6; i++) {
-            cartas[idx++] = new GameCard("Guardian " + (i + 1), 20000, 3, CardType.GUARD);
-        }
-        for (int i = 0; i < 6; i++) {
-            cartas[idx++] = new GameCard("Golpeador Doble " + (i + 1), 35000, 4, CardType.DOUBLE_STRIKE);
-        }
+        idx = agregarFamilia(cartas, idx, "Guerrero Basico", 6);
+        idx = agregarFamilia(cartas, idx, "Explorador", 6);
+        idx = agregarFamilia(cartas, idx, "Guardian", 6);
+        idx = agregarFamilia(cartas, idx, "Golpeador Doble", 6);
         barajar(cartas);
         for (GameCard carta : cartas) {
             deck.apilar(carta);
         }
+    }
+
+    /**
+     * Busca la plantilla de una familia de cartas en el {@link CatalogoCartas} (tabla hash,
+     * busqueda O(1) por nombre) y agrega al arreglo tantas copias numeradas de esa familia como
+     * se pidan, empezando en el indice dado.
+     *
+     * @param cartas        arreglo destino donde se van colocando las cartas del mazo
+     * @param indiceInicial indice del arreglo donde se coloca la primera copia
+     * @param nombreFamilia nombre de la familia a buscar en el catalogo
+     * @param cantidad      cantidad de copias numeradas a generar
+     * @return el indice siguiente al de la ultima copia agregada
+     */
+    private int agregarFamilia(GameCard[] cartas, int indiceInicial, String nombreFamilia, int cantidad) {
+        GameCard plantilla = CatalogoCartas.buscar(nombreFamilia);
+        for (int i = 0; i < cantidad; i++) {
+            cartas[indiceInicial + i] = plantilla.crearCopiaNumerada(i + 1);
+        }
+        return indiceInicial + cantidad;
     }
 
     /**

@@ -1,7 +1,11 @@
 package dbfw.cardgame;
 
+import dbfw.cardgame.arbol.ArbolEvolucion;
+import dbfw.cardgame.arbol.ArbolesEvolucion;
 import dbfw.cardgame.estructuras.ListaCircular;
 import dbfw.cardgame.estructuras.ListaDoble;
+import dbfw.cardgame.estructuras.ListaSimple;
+import dbfw.cardgame.excepciones.ColaPrioridadVaciaException;
 import dbfw.cardgame.excepciones.MazoVacioException;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListModel;
@@ -12,6 +16,7 @@ import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
 import java.awt.BorderLayout;
@@ -73,6 +78,7 @@ public class CardBattleFrame extends JFrame {
     private final JButton btnBoost = new JButton("Potenciar carta (+5000, 1 energia)");
     private final JButton btnEndTurn = new JButton("Terminar Turno");
     private final JButton btnHistorial = new JButton("Ver Historial");
+    private final JButton btnArbol = new JButton("Ver Arbol de Evolucion");
 
     /**
      * Construye la ventana, crea a ambos jugadores con sus mazos y manos iniciales,
@@ -161,9 +167,11 @@ public class CardBattleFrame extends JFrame {
         btnBoost.addActionListener(e -> onBoost());
         btnEndTurn.addActionListener(e -> onEndTurn());
         btnHistorial.addActionListener(e -> mostrarHistorial());
+        btnArbol.addActionListener(e -> mostrarArbolEvolucion());
         controlPanel.add(btnBoost);
         controlPanel.add(btnEndTurn);
         controlPanel.add(btnHistorial);
+        controlPanel.add(btnArbol);
         sur.add(controlPanel, BorderLayout.SOUTH);
 
         add(sur, BorderLayout.SOUTH);
@@ -215,6 +223,63 @@ public class CardBattleFrame extends JFrame {
         panelNav.add(botones, BorderLayout.SOUTH);
         JOptionPane.showMessageDialog(this, panelNav, "Historial de jugadas (" + historial.tamano() + " eventos)",
                 JOptionPane.PLAIN_MESSAGE);
+    }
+
+    /**
+     * Abre un dialogo para elegir una familia de cartas y muestra el recorrido recursivo
+     * completo de su {@link ArbolEvolucion} (nivel basico -&gt; mejorado -&gt; legendario),
+     * buscando el arbol por nombre en {@link ArbolesEvolucion} (tabla hash).
+     */
+    private void mostrarArbolEvolucion() {
+        String[] familias = ArbolesEvolucion.nombresFamilias().toArray(new String[0]);
+        if (familias.length == 0) {
+            return;
+        }
+        String elegida = (String) JOptionPane.showInputDialog(this, "Elige una familia de cartas:",
+                "Arbol de Evolucion", JOptionPane.PLAIN_MESSAGE, null, familias, familias[0]);
+        if (elegida == null) {
+            return;
+        }
+        ArbolEvolucion<GameCard> arbol = ArbolesEvolucion.buscar(elegida);
+        ListaSimple<String> lineas = arbol.recorrerCompleto(c -> c.getName() + " (PWR " + c.getBasePower() + ")");
+        StringBuilder texto = new StringBuilder();
+        for (String linea : lineas) {
+            texto.append(linea).append("\n");
+        }
+        JTextArea area = new JTextArea(texto.toString());
+        area.setEditable(false);
+        area.setFont(new Font("Consolas", Font.PLAIN, 13));
+        JOptionPane.showMessageDialog(this, new JScrollPane(area), "Arbol de evolucion: " + elegida,
+                JOptionPane.PLAIN_MESSAGE);
+    }
+
+    /**
+     * Resuelve, en orden de prioridad (mayor a menor), los efectos de todas las cartas que un
+     * jugador jugo y aun no ha resuelto (ver {@code CardPlayer#getEfectosPendientes}, Cola de
+     * Prioridad propia): las cartas con habilidad especial mas fuerte se procesan antes que las
+     * demas, sin importar en que orden se jugaron dentro de la fase de juego.
+     *
+     * @param jugador jugador cuyos efectos pendientes se van a resolver
+     */
+    private void resolverEfectosPendientes(CardPlayer jugador) {
+        while (!jugador.getEfectosPendientes().esVacia()) {
+            GameCard carta;
+            try {
+                carta = jugador.getEfectosPendientes().desencolar();
+            } catch (ColaPrioridadVaciaException e) {
+                break; // no deberia ocurrir: ya se valido con esVacia() justo arriba
+            }
+            appendLog("Se resuelve el efecto de " + carta.getName() + " (prioridad " + carta.getPrioridadEfecto() + ").");
+            if (carta.drawsOnPlay()) {
+                try {
+                    jugador.drawCard();
+                    appendLog(jugador.getName() + " roba 1 carta por el efecto de " + carta.getName() + ".");
+                } catch (MazoVacioException e) {
+                    declararDerrota(jugador);
+                    return;
+                }
+            }
+        }
     }
 
     // ---------------- RENDER ----------------
@@ -351,14 +416,10 @@ public class CardBattleFrame extends JFrame {
         human.getHand().remover(c);
         human.getBattleArea().agregar(c);
         appendLog("Juegas " + c.getName() + " (PWR " + c.getEffectivePower(false) + ").");
-        if (c.drawsOnPlay()) {
-            try {
-                human.drawCard();
-                appendLog("Robas 1 carta del mazo.");
-            } catch (MazoVacioException e) {
-                declararDerrota(human);
-                return;
-            }
+        human.encolarEfectoDeCarta(c);
+        resolverEfectosPendientes(human);
+        if (gameOver) {
+            return;
         }
         refreshUI();
     }
@@ -482,18 +543,18 @@ public class CardBattleFrame extends JFrame {
                     cpu.getHand().remover(c);
                     cpu.getBattleArea().agregar(c);
                     appendLog("CPU juega " + c.getName() + " (PWR " + c.getEffectivePower(false) + ").");
-                    if (c.drawsOnPlay()) {
-                        try {
-                            cpu.drawCard();
-                        } catch (MazoVacioException e) {
-                            declararDerrota(cpu);
-                            return;
-                        }
-                    }
+                    cpu.encolarEfectoDeCarta(c);
                     jugoAlgo = true;
                     break;
                 }
             }
+        }
+        // Al terminar la fase de juego, se resuelven todos los efectos encolados en orden de
+        // prioridad (Cola de Prioridad propia): si la CPU jugo varias cartas, las de habilidad
+        // mas fuerte se resuelven antes que las demas, sin importar el orden en que se jugaron.
+        resolverEfectosPendientes(cpu);
+        if (gameOver) {
+            return;
         }
         refreshUI();
 
