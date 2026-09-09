@@ -2,6 +2,7 @@ package dbfw.cardgame;
 
 import dbfw.cardgame.arbol.ArbolEvolucion;
 import dbfw.cardgame.arbol.ArbolesEvolucion;
+import dbfw.cardgame.audio.MusicPlayer;
 import dbfw.cardgame.estructuras.ListaCircular;
 import dbfw.cardgame.estructuras.ListaDoble;
 import dbfw.cardgame.estructuras.ListaSimple;
@@ -79,6 +80,13 @@ public class CardBattleFrame extends JFrame {
     private final JButton btnEndTurn = new JButton("Terminar Turno");
     private final JButton btnHistorial = new JButton("Ver Historial");
     private final JButton btnArbol = new JButton("Ver Arbol de Evolucion");
+    private final JButton btnMusica = new JButton("Silenciar Musica");
+    /**
+     * Reproductor de la musica de fondo del juego (ver {@link MusicPlayer}). Cada jugador debe
+     * colocar su propio archivo en {@code music/theme.mp3} (excluido de git); si no existe,
+     * el juego simplemente continua sin musica.
+     */
+    private final MusicPlayer musica = new MusicPlayer();
 
     /**
      * Construye la ventana, crea a ambos jugadores con sus mazos y manos iniciales,
@@ -168,10 +176,12 @@ public class CardBattleFrame extends JFrame {
         btnEndTurn.addActionListener(e -> onEndTurn());
         btnHistorial.addActionListener(e -> mostrarHistorial());
         btnArbol.addActionListener(e -> mostrarArbolEvolucion());
+        btnMusica.addActionListener(e -> onToggleMusica());
         controlPanel.add(btnBoost);
         controlPanel.add(btnEndTurn);
         controlPanel.add(btnHistorial);
         controlPanel.add(btnArbol);
+        controlPanel.add(btnMusica);
         sur.add(controlPanel, BorderLayout.SOUTH);
 
         add(sur, BorderLayout.SOUTH);
@@ -183,6 +193,24 @@ public class CardBattleFrame extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(950, 750);
         setLocationRelativeTo(null);
+
+        boolean sonando = musica.reproducirTema();
+        if (!sonando) {
+            btnMusica.setText("Musica no encontrada");
+            btnMusica.setEnabled(false);
+        }
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                musica.detener();
+            }
+        });
+    }
+
+    /** Alterna el silencio de la musica de fondo con {@link #btnMusica}. */
+    private void onToggleMusica() {
+        boolean silenciado = musica.alternarSilencio();
+        btnMusica.setText(silenciado ? "Reanudar Musica" : "Silenciar Musica");
     }
 
     /**

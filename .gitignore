@@ -1,0 +1,5 @@
+dbfw-game/out/
+# Musica de fondo: cada quien coloca su propio archivo aqui (derechos de autor).
+# Se ignora el contenido pero se conserva la carpeta vacia con .gitkeep.
+dbfw-game/music/*
+!dbfw-game/music/.gitkeep
