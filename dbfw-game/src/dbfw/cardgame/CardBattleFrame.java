@@ -12,7 +12,6 @@ import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
 import java.awt.BorderLayout;
@@ -20,7 +19,6 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.GridLayout;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -32,7 +30,8 @@ import java.util.Random;
  * <p>
  * Esta clase concentra toda la logica de la partida entre el jugador humano y la CPU:
  * <ul>
- *   <li>Construccion de la interfaz (paneles de lider, area de batalla, mano y log de eventos).</li>
+ *   <li>Construccion de la interfaz (tablero panoramico en perspectiva, lideres, area de
+ *       batalla, mano y letrero de eventos).</li>
  *   <li>Turnos: inicio de turno, jugar cartas de la mano, atacar, usar la habilidad de potenciar
  *       del lider y terminar el turno (lo que dispara el turno automatico de la CPU).</li>
  *   <li>Resolucion de combate ({@link #resolverAtaque}): eleccion de bloqueador, cartas de combo
@@ -56,16 +55,21 @@ public class CardBattleFrame extends JFrame {
     /**
      * Historial navegable de jugadas de la partida: Lista Doblemente Enlazada propia (ver
      * {@link ListaDoble}) que permite recorrer los eventos hacia atras y hacia adelante con un
-     * cursor, a diferencia del registro de texto de solo lectura de {@link #log}.
+     * cursor, a diferencia del letrero de eventos de solo lectura ({@link #eventBanner}).
      */
     private final ListaDoble<String> historial = new ListaDoble<>();
 
     private final JLabel infoCpu = new JLabel();
     private final JLabel infoHuman = new JLabel();
-    private final JPanel cpuBattlePanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 8));
-    private final JPanel humanBattlePanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 8));
-    private final JPanel handPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 8));
-    private final JTextArea log = new JTextArea(10, 60);
+    private final JPanel cpuBattlePanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 6));
+    private final JPanel humanBattlePanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 6));
+    private final JPanel handPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 6));
+    /**
+     * Aviso del ultimo evento de la partida, mostrado como un letrero sobre el tablero
+     * panoramico (en vez del antiguo registro de texto siempre visible). El historial completo
+     * sigue disponible y navegable mediante {@link #mostrarHistorial()}.
+     */
+    private final JLabel eventBanner = new JLabel(" ", SwingConstants.CENTER);
     private final JButton btnBoost = new JButton("Potenciar carta (+5000, 1 energia)");
     private final JButton btnEndTurn = new JButton("Terminar Turno");
     private final JButton btnHistorial = new JButton("Ver Historial");
@@ -88,27 +92,70 @@ public class CardBattleFrame extends JFrame {
         ordenTurnos.agregar(human);
         ordenTurnos.agregar(cpu);
 
-        setLayout(new BorderLayout(5, 5));
+        setLayout(new BorderLayout());
 
-        JPanel topContainer = new JPanel(new BorderLayout());
-        topContainer.setBorder(BorderFactory.createTitledBorder("CPU"));
-        topContainer.add(infoCpu, BorderLayout.NORTH);
-        topContainer.add(cpuBattlePanel, BorderLayout.CENTER);
-        add(topContainer, BorderLayout.NORTH);
+        // Tablero panoramico: un solo panel con piso en perspectiva sobre el que "flotan"
+        // el letrero de eventos, la fila de la CPU (arriba, mas lejos) y la fila del jugador
+        // (abajo, mas cerca), en vez de paneles separados con bordes rectangulares.
+        BoardPanel board = new BoardPanel();
+        board.setLayout(new BorderLayout());
 
-        log.setEditable(false);
-        log.setFont(new Font("Consolas", Font.PLAIN, 13));
-        add(new JScrollPane(log), BorderLayout.CENTER);
+        eventBanner.setOpaque(true);
+        eventBanner.setBackground(new Color(20, 20, 25, 210));
+        eventBanner.setForeground(Color.WHITE);
+        eventBanner.setFont(new Font("SansSerif", Font.BOLD, 14));
+        eventBanner.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
 
-        JPanel bottomContainer = new JPanel(new GridLayout(3, 1));
-        bottomContainer.setBorder(BorderFactory.createTitledBorder("Tu turno"));
+        infoCpu.setOpaque(true);
+        infoCpu.setBackground(new Color(30, 15, 15, 200));
+        infoCpu.setForeground(Color.WHITE);
+        infoCpu.setFont(new Font("SansSerif", Font.BOLD, 14));
+        infoCpu.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
 
-        JPanel playerTop = new JPanel(new BorderLayout());
-        playerTop.add(infoHuman, BorderLayout.NORTH);
-        playerTop.add(humanBattlePanel, BorderLayout.CENTER);
-        bottomContainer.add(playerTop);
+        infoHuman.setOpaque(true);
+        infoHuman.setBackground(new Color(10, 15, 35, 200));
+        infoHuman.setForeground(Color.WHITE);
+        infoHuman.setFont(new Font("SansSerif", Font.BOLD, 14));
+        infoHuman.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
 
-        bottomContainer.add(handPanel);
+        cpuBattlePanel.setOpaque(false);
+        humanBattlePanel.setOpaque(false);
+        handPanel.setOpaque(false);
+
+        JPanel filaCpu = new JPanel(new BorderLayout());
+        filaCpu.setOpaque(false);
+        filaCpu.setBorder(BorderFactory.createEmptyBorder(6, 0, 0, 0));
+        JPanel infoCpuWrap = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        infoCpuWrap.setOpaque(false);
+        infoCpuWrap.add(infoCpu);
+        filaCpu.add(infoCpuWrap, BorderLayout.NORTH);
+        filaCpu.add(cpuBattlePanel, BorderLayout.CENTER);
+
+        JPanel norte = new JPanel(new BorderLayout());
+        norte.setOpaque(false);
+        JPanel bannerWrap = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        bannerWrap.setOpaque(false);
+        bannerWrap.add(eventBanner);
+        norte.add(bannerWrap, BorderLayout.NORTH);
+        norte.add(filaCpu, BorderLayout.CENTER);
+        board.add(norte, BorderLayout.NORTH);
+
+        JPanel filaHumano = new JPanel(new BorderLayout());
+        filaHumano.setOpaque(false);
+        filaHumano.add(humanBattlePanel, BorderLayout.CENTER);
+        JPanel infoHumanWrap = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        infoHumanWrap.setOpaque(false);
+        infoHumanWrap.add(infoHuman);
+        filaHumano.add(infoHumanWrap, BorderLayout.SOUTH);
+        board.add(filaHumano, BorderLayout.SOUTH);
+
+        add(board, BorderLayout.CENTER);
+
+        // Debajo del tablero: la mano del jugador (como cartas "en la mesa" frente a la camara)
+        // y los controles de turno.
+        JPanel sur = new JPanel(new BorderLayout());
+        sur.setBorder(BorderFactory.createTitledBorder("Tu mano"));
+        sur.add(handPanel, BorderLayout.NORTH);
 
         JPanel controlPanel = new JPanel(new FlowLayout());
         btnBoost.addActionListener(e -> onBoost());
@@ -117,9 +164,9 @@ public class CardBattleFrame extends JFrame {
         controlPanel.add(btnBoost);
         controlPanel.add(btnEndTurn);
         controlPanel.add(btnHistorial);
-        bottomContainer.add(controlPanel);
+        sur.add(controlPanel, BorderLayout.SOUTH);
 
-        add(bottomContainer, BorderLayout.SOUTH);
+        add(sur, BorderLayout.SOUTH);
 
         appendLog("=== TECMILENIO HEROES - Juego de Cartas ===");
         appendLog("Haz clic en una carta de tu mano para jugarla, o en una carta/lider de tu area para atacar.");
@@ -135,8 +182,7 @@ public class CardBattleFrame extends JFrame {
      * tambien la agrega al historial navegable ({@link #historial}, Lista Doble propia).
      */
     private void appendLog(String texto) {
-        log.append(texto + "\n");
-        log.setCaretPosition(log.getDocument().getLength());
+        eventBanner.setText("<html>" + texto.replace("\n", "<br>") + "</html>");
         historial.agregarFinal(texto);
     }
 
