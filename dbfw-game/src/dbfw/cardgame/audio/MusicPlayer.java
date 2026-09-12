@@ -21,7 +21,7 @@ import javax.sound.sampled.UnsupportedAudioFileException;
  * El archivo de audio en si (por ejemplo la cancion tema del juego) <b>no</b> se distribuye con
  * el codigo fuente por derechos de autor: cada quien coloca su propio archivo en la carpeta
  * {@code music/} (ver {@link #RUTA_TEMA_POR_DEFECTO}), carpeta que esta excluida en
- * {@code .gitignore}. Si el archivo no existe, {@link #reproducirTema()} simplemente no hace
+ * {@code .gitignore}. Si el archivo no existe, simplemente no hace
  * sonido y el juego sigue funcionando con normalidad.
  */
 public final class MusicPlayer {
