@@ -1,16 +1,9 @@
 package dbfw.cardgame.estructuras;
 
 /**
- * Implementacion propia de una Lista Circular (el ultimo nodo enlaza de vuelta al primero, sin
- * ningun extremo en null) mediante nodos enlazados, sin usar ninguna coleccion de la biblioteca
- * estandar.
- * <p>
- * Se usa para representar el <b>ciclo de turnos</b> entre el jugador humano y la CPU: en vez de
- * alternar manualmente entre dos variables, se arma un anillo con ambos jugadores y se rota con
- *  cada vez que termina el turno de alguien; en todo momento se puede
- * consultar de quien es el turno con . Al tener solo dos elementos, el anillo
- * siempre vuelve exactamente al mismo jugador que empezo, mostrando el ciclo que rota en cada
- * ronda de la partida.
+ * Lista circular propia para el ciclo de turnos entre el jugador y la CPU.
+ * El ultimo nodo vuelve al primero, asi el turno rota siempre de forma continua.
+ * Se hizo con nodos propios en vez de {@code List} o arreglos para avanzar al siguiente turno en O(1), sin mover elementos.
  *
  * @param <T> tipo de elemento que almacena la lista circular (en este juego, {@code CardPlayer})
  */
@@ -34,8 +27,7 @@ public class ListaCircular<T> {
     private int tamano;
 
     /**
-     * Agrega un elemento al anillo, conectandolo de forma que el ciclo se mantenga siempre
-     * cerrado (el nuevo ultimo nodo vuelve a apuntar al primero).
+     * Agrega un elemento al anillo y mantiene el ciclo cerrado.
      */
     public void agregar(T valor) {
         Nodo<T> nuevo = new Nodo<>(valor);

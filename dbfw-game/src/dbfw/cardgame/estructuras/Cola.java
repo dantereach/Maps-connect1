@@ -5,15 +5,9 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 /**
- * Implementacion propia de una Cola (estructura FIFO - "First In, First Out") mediante nodos
- * enlazados.
- * <p>
- * Se usa para representar la <b>mano</b> de cada jugador: las cartas robadas se agregan al
- * final con. Como en este juego el jugador puede jugar o quemar en
- * combo cualquier carta de su mano (no solo la primera que robo), se agrega
- * como una extension practica que busca y quita un elemento especifico
- * recorriendo la cola nodo por nodo; permite recorrerla para mostrar todas
- * las cartas en la interfaz sin exponer los nodos internos.
+ * Cola enlazada propia que representa la mano de cada jugador.
+ * Las cartas nuevas entran al final y luego se pueden recorrer o quitar cuando se juegan.
+ * Se hizo con nodos propios en vez de {@code List} o arreglos para encolar y sacar del frente en O(1), sin desplazar elementos.
  *
  * @param <T> tipo de elemento que almacena la cola
  */
@@ -77,9 +71,8 @@ public class Cola<T> implements Iterable<T> {
     }
 
     /**
-     * Busca la primera aparicion de un elemento recorriendo
-     * la cola nodo por nodo, sin importar si esta al frente o mas atras, y lo quita reconectando
-     * los nodos vecinos. Se usa para jugar o quemar en combo una carta especifica de la mano.
+     * Busca un elemento en la cola y lo quita reconectando los nodos.
+     * Se usa para jugar o gastar una carta especifica de la mano.
      *
      * @param valor elemento a buscar y quitar
      * @return true si el elemento se encontro y se quito; false si no estaba en la cola
@@ -140,11 +133,8 @@ public class Cola<T> implements Iterable<T> {
     }
 
     /**
-     * Crea una copia de solo lectura de los elementos de la cola en un {@link java.util.ArrayList},
-     * en el mismo orden de frente a final. Esto <b>no</b> es el almacenamiento real de la cola
-     * (que sigue siendo la cadena de nodos enlazados): es unicamente un puente practico para
-     * interoperar con componentes de Swing que requieren un arreglo o lista indexable
-     * (por ejemplo {@code JOptionPane.showInputDialog} o {@code toArray}).
+     * Crea una copia temporal de la cola en un {@link java.util.ArrayList}.
+     * Solo sirve para pasar los datos a componentes de Swing; la cola real sigue guardada en nodos.
      *
      * @return copia temporal e independiente de los elementos de la cola
      */

@@ -5,23 +5,9 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 /**
- * Implementacion propia de una Cola de Prioridad mediante una lista de nodos enlazados que se
- * mantiene siempre ordenada de mayor a menor prioridad (insercion ordenada), sin usar
- * {@code java.util.PriorityQueue} ni ninguna otra coleccion de la biblioteca estandar.
- * <p>
- * Se usa para las cartas con habilidad especial: cuando un jugador juega varias cartas en su
- * fase de juego (ver {@code CardPlayer#encolarEfectoDeCarta}), sus efectos no se resuelven de
- * inmediato ni en el orden en que se jugaron, sino que se encolan aqui con la prioridad de su
- * habilidad ({@code GameCard#getPrioridadEfecto()}) y se resuelven de mayor a menor prioridad:
- * las cartas con la habilidad mas fuerte (Double Strike) siempre se resuelven antes que las de
- * habilidad media (Guardia), estas antes que las de habilidad leve (Robo), y estas antes que las
- * basicas (sin habilidad) — sin importar cual se jugo primero.
- * <p>
- * A diferencia de un monticulo binario (heap) clasico, que se implementa sobre un arreglo, esta
- * version usa nodos enlazados para mantener la misma filosofia de construccion "a mano" que el
- * resto de las estructuras del proyecto: {@link #encolar} inserta el nuevo nodo en su posicion
- * ordenada recorriendo la cadena de nodos (O(n)), y {@link #desencolar} siempre quita el nodo al
- * frente, que es el de mayor prioridad (O(1)).
+ * Cola de prioridad propia para los efectos pendientes de las cartas, ordenados de mayor a menor prioridad.
+ * Asi los efectos se resuelven por prioridad y no solo por el orden en que se jugaron las cartas.
+ * Se hizo con nodos propios en vez de {@code PriorityQueue}, {@code List} o arreglos para mantener el orden por enlaces y sacar el frente en O(1), sin desplazar elementos.
  *
  * @param <T> tipo de elemento que almacena la cola de prioridad
  */
@@ -45,9 +31,8 @@ public class ColaPrioridad<T> implements Iterable<T> {
     private int tamano;
 
     /**
-     * Agrega un elemento con su prioridad asociada. Un numero de prioridad mas alto significa
-     * que sale primero. Si dos elementos tienen la misma prioridad, se respeta el orden en que
-     * se encolaron (el mas antiguo sale primero entre los de igual prioridad).
+     * Agrega un elemento con su prioridad.
+     * Un numero mas alto sale primero, y si hay empate se respeta el orden de llegada.
      *
      * @param valor     elemento a encolar
      * @param prioridad prioridad del elemento (mayor = se resuelve antes)

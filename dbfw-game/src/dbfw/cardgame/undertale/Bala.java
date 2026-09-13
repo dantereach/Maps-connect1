@@ -1,16 +1,9 @@
 package dbfw.cardgame.undertale;
 
 /**
- * Una "bala" del mini-juego de esquive estilo Undertale: un proyectil que se mueve dentro de la
- * caja de esquive. Ademas del movimiento simple en linea recta,
- * admite dos variantes inspiradas en los patrones de la pelea de Undyne the Undying:
- * <ul>
- *   <li><b>Lanza</b>: se dibuja alargada y girada segun su direccion (como las paredes de
- *       lanzas de Undyne), aunque para simplificar la deteccion de choque se sigue tratando
- *       como un circulo mas pequeño centrado en la bala.</li>
- *   <li><b>Onda</b>: en vez de avanzar en linea recta, su posicion vertical oscila con una
- *       funcion seno alrededor de una trayectoria base (como los ataques de onda de Undyne).</li>
- * </ul>
+ * Proyectil del minijuego de esquive.
+ * Puede ser una bala normal, una lanza o una bala con movimiento en onda.
+ * Todas se mueven dentro de la caja y sirven para detectar choques con el corazon.
  */
 public class Bala {
     private double x;
@@ -26,24 +19,22 @@ public class Bala {
     private final double faseOnda;
     private int tick = 0;
 
-    /** Bala circular simple, con movimiento en linea recta. */
+    /** Bala simple con movimiento recto. */
     public Bala(double x, double y, double vx, double vy, int radio) {
         this(x, y, vx, vy, radio, false, 0, 0, 0);
     }
 
-    /** Bala circular (esLanza = false) o tipo lanza (esLanza = true), con movimiento en linea recta. */
+    /** Bala recta normal o tipo lanza. */
     public Bala(double x, double y, double vx, double vy, int radio, boolean esLanza) {
         this(x, y, vx, vy, radio, esLanza, 0, 0, 0);
     }
 
     /**
-     * Bala con movimiento ondulado (estilo ataque de onda de Undyne): avanza en linea recta en
-     * el eje dominante de {@code vx}/{@code vy} mientras su posicion oscila con una funcion
-     * seno alrededor de esa trayectoria base.
+     * Bala con movimiento ondulado.
      *
-     * @param amplitudOnda   amplitud de la oscilacion, en pixeles
-     * @param frecuenciaOnda que tan rapido oscila (radianes por tick de animacion)
-     * @param faseOnda       desfase inicial de la oscilacion, en radianes (para escalonar varias balas)
+     * @param amplitudOnda   amplitud de la oscilacion
+     * @param frecuenciaOnda velocidad de la oscilacion
+     * @param faseOnda       fase inicial de la onda
      */
     public Bala(double x, double y, double vx, double vy, int radio,
                 double amplitudOnda, double frecuenciaOnda, double faseOnda) {
@@ -115,7 +106,7 @@ public class Bala {
         return radio;
     }
 
-    /** @return true si esta bala se dibuja como una lanza alargada (estilo Undyne) en vez de un circulo. */
+    /** @return true si esta bala se dibuja como lanza. */
     public boolean isLanza() {
         return esLanza;
     }

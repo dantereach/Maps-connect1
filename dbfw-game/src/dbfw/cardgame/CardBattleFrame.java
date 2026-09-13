@@ -35,40 +35,19 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * Ventana principal del modo hibrido "Undertale/Slay the Spire", con reglas inspiradas en
- * Dragon Ball Fusion World: lideres con vida, transformacion del lider a baja vida, y cartas
- * que ya no son "personajes" sino acciones de un solo uso (atacar, robar, golpe doble).
- * <p>
- * En el turno del jugador humano el gameplay es estilo Slay the Spire: las cartas de la mano
- * son las acciones disponibles y, al jugarlas, resuelven su efecto de inmediato (daño directo
- * al rival o robar una carta), sin comparar poder contra ninguna otra carta. La mano ya no se
- * muestra completa de un jirón: el menu de acciones esta dividido en dos categorias al estilo
- * de los menus de combate de Undertale ({@link CategoriaAccion}), "Ataque" (cartas que dañan al
- * rival) e "Item" (cartas de utilidad, como robar del mazo), y solo se ve una a la vez. En el
- * turno de la CPU, sus cartas se resuelven igual, pero el ataque de su Lider (una vez por turno)
- * se dramatiza como una fase de esquive en tiempo real al estilo Undertale ({@link PanelEsquive}):
- * el jugador mueve un corazon con las flechas del teclado para esquivar una lluvia de balas.
- * <p>
- * Esta clase concentra toda la logica de la partida entre el jugador humano y la CPU:
- * <ul>
- *   <li>Construccion de la interfaz (tablero panoramico en perspectiva con el tema negro/verde
- *       de Undertale, lideres, historial de acciones jugadas, menu Ataque/Item y letrero de
- *       eventos).</li>
- *   <li>Turnos: inicio de turno, jugar cartas de la mano, atacar con el lider, usar la
- *       habilidad de potenciar y terminar el turno (lo que dispara el turno automatico de la
- *       CPU, incluyendo la fase de esquive).</li>
- *   <li>Resolucion de acciones ({@link #resolverEfectosPendientes}): aplica daño directo o
- *       robo de cartas en orden de prioridad, con combo ofensivo opcional.</li>
- *   <li>Inteligencia artificial simple de la CPU: que carta jugar y cuando usar combo.</li>
- *   <li>Configuracion en tiempo real (volumen/silencio de la musica) mediante un dialogo
- *       accesible desde el boton "Configuracion" (ver {@link #mostrarConfiguracion}).</li>
- * </ul>
+ * Ventana principal del juego hibrido Undertale/Slay the Spire,
+ * inspirado en Dragon Ball Fusion World.
+ * En el turno del jugador, las cartas son acciones instantaneas
+ * y se organizan en un menu de Ataque e Item.
+ * En el turno de la CPU, el ataque de su lider se resuelve como
+ * una fase de esquive en tiempo real con {@link PanelEsquive}.
+ * Esta clase maneja la interfaz, los turnos, la resolucion por
+ * prioridad, la Ia simple de la CPU y la configuracion de volumen y musica.
  */
 public class CardBattleFrame extends JFrame {
     /**
-     * Categoria de accion mostrada en el menu de la mano, al estilo de los menus de combate de
-     * Undertale (FIGHT/ITEM): "Ataque" agrupa las cartas que dañan directamente al rival, e
-     * "Item" agrupa las cartas de utilidad (por ahora, robar del mazo). Ver {@link GameCard#drawsOnPlay()}.
+     * Categoria que se muestra en la mano.
+     * ATAQUE hace daño; ITEM cubre cartas de utilidad.
      */
     private enum CategoriaAccion { ATAQUE, ITEM }
 
@@ -76,23 +55,21 @@ public class CardBattleFrame extends JFrame {
     private final CardPlayer cpu;
     private final Random random = new Random();
     private boolean gameOver = false;
-    /** Dificultad elegida antes de iniciar la partida (ver {@code dbfw.Main}); afecta el mazo de la CPU, su IA de combo y la fase de esquive. */
+    /** Dificultad elegida al iniciar; ajusta la CPU y la fase de esquive. */
     private final Dificultad dificultad;
-    /** Categoria de carta que se muestra actualmente en la mano (ver {@link CategoriaAccion}). */
+    /** Categoria de cartas que se muestra en la mano. */
     private CategoriaAccion categoriaActual = CategoriaAccion.ATAQUE;
-    /** true si se encontro y se pudo reproducir el archivo de musica (ver {@link #mostrarConfiguracion}). */
+    /** Indica si la musica de fondo pudo cargarse y reproducirse. */
     private boolean musicaDisponible;
 
     /**
-     * Ciclo de turnos entre el jugador humano y la CPU: Lista Circular propia (ver
-     * {@link ListaCircular}) que se rota con {@code avanzar()} en cada cambio de turno, en vez
-     * de alternar manualmente entre dos variables.
+     * Orden de turnos entre humano y CPU.
+     * Se rota con la {@link ListaCircular} propia.
      */
     private final ListaCircular<CardPlayer> ordenTurnos = new ListaCircular<>();
     /**
-     * Historial navegable de jugadas de la partida: Lista Doblemente Enlazada propia (ver
-     * {@link ListaDoble}) que permite recorrer los eventos hacia atras y hacia adelante con un
-     * cursor, a diferencia del letrero de eventos de solo lectura ({@link #eventBanner}).
+     * Historial navegable de eventos de la partida.
+     * Usa la {@link ListaDoble} propia.
      */
     private final ListaDoble<String> historial = new ListaDoble<>();
 
@@ -102,43 +79,39 @@ public class CardBattleFrame extends JFrame {
     private final JPanel humanBattlePanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 6));
     private final JPanel handPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 6));
     /**
-     * Aviso del ultimo evento de la partida, mostrado como un letrero sobre el tablero
-     * panoramico (en vez del antiguo registro de texto siempre visible). El historial completo
-     * sigue disponible y navegable mediante {@link #mostrarHistorial()}.
+     * Letrero con el ultimo evento importante.
+     * El historial completo se abre con {@link #mostrarHistorial()}.
      */
     private final JLabel eventBanner = new JLabel(" ", SwingConstants.CENTER);
-    /** Boton de menu "Ataque": muestra en la mano solo las cartas que dañan directamente al rival. */
+    /** Boton Ataque: muestra las cartas que hacen daño directo. */
     private final JButton btnMenuAtaque = new JButton("ATAQUE");
-    /** Boton de menu "Item": muestra en la mano solo las cartas de utilidad (ej. robar del mazo). */
+    /** Boton Item: muestra cartas de utilidad, como robar. */
     private final JButton btnMenuItem = new JButton("ITEM");
     private final JButton btnBoost = new JButton("Potenciar tu proximo ataque (+1 dano, 1 energia)");
     private final JButton btnEndTurn = new JButton("Terminar Turno");
     private final JButton btnHistorial = new JButton("Ver Historial");
     private final JButton btnArbol = new JButton("Ver Arbol de Evolucion");
     private final JButton btnConfiguracion = new JButton("Configuracion");
-    /** Borde con titulo del panel de mano, que cambia entre "Ataque" e "Item" segun {@link #categoriaActual}. */
+    /** Borde del panel de mano; cambia entre "Ataque" e "Item". */
     private final TitledBorder bordeMano = BorderFactory.createTitledBorder(
             BorderFactory.createLineBorder(TemaUndertale.VERDE_OSCURO, 2), "Tu mano - Ataque");
     /**
-     * Reproductor de la musica de fondo del juego (ver {@link MusicPlayer}). Cada jugador debe
-     * colocar su propio archivo en {@code music/theme.mp3} (excluido de git); si no existe,
-     * el juego simplemente continua sin musica.
+     * Reproductor de musica de fondo.
+     * Si no existe {@code music/theme.mp3}, el juego sigue sin musica.
      */
     private final MusicPlayer musica = new MusicPlayer();
 
     /**
-     * Construye la ventana, crea a ambos jugadores con sus mazos y manos iniciales,
-     * arma todos los paneles de la interfaz y deja lista la partida para que el
-     * jugador humano tome su primer turno.
+     * Crea la ventana, prepara a ambos jugadores y arma la interfaz.
      *
-     * @param dificultad dificultad elegida en el selector inicial (ver {@code dbfw.Main}):
-     *                   ajusta el mazo de la CPU, su IA de combo y la fase de esquive
+     * @param dificultad dificultad elegida al inicio; ajusta la CPU y la fase de esquive
      */
     public CardBattleFrame(Dificultad dificultad) {
         super("Tecmilenio Heroes - Undertale/Slay the Spire (" + dificultad + ")");
         this.dificultad = dificultad;
 
         human = new CardPlayer("Tu", LeaderCard.crearLiderAzul());
+        // La CPU tiene el doble de vida del jugador para compensar su daño base mas bajo.
         cpu = new CardPlayer("CPU", LeaderCard.crearLiderCpu());
         human.buildDeck();
         cpu.buildDeck(dificultad.getConteoPorFamilia());
@@ -150,9 +123,7 @@ public class CardBattleFrame extends JFrame {
 
         setLayout(new BorderLayout());
 
-        // Tablero panoramico: un solo panel con piso en perspectiva sobre el que "flotan"
-        // el letrero de eventos, la fila de la CPU (arriba, mas lejos) y la fila del jugador
-        // (abajo, mas cerca), en vez de paneles separados con bordes rectangulares.
+        // Tablero panoramico con ambas filas y el letrero de eventos en un solo panel.
         BoardPanel board = new BoardPanel();
         board.setLayout(new BorderLayout());
 
@@ -213,8 +184,7 @@ public class CardBattleFrame extends JFrame {
 
         add(board, BorderLayout.CENTER);
 
-        // Debajo del tablero: el menu de acciones (Ataque/Item, estilo Undertale) con la mano
-        // filtrada por categoria, y los controles de turno. Todo con el tema negro/verde.
+        // Abajo van el menu Ataque/Item y los controles del turno.
         JPanel sur = new JPanel(new BorderLayout());
         TemaUndertale.fondoNegro(sur);
         bordeMano.setTitleColor(TemaUndertale.VERDE);
@@ -272,11 +242,7 @@ public class CardBattleFrame extends JFrame {
         refreshUI();
     }
 
-    /**
-     * Abre el dialogo de Configuracion: por ahora permite ajustar el volumen de la musica de
-     * fondo y silenciarla, ademas de mostrar la dificultad elegida. Con el tema negro/verde de
-     * {@link TemaUndertale}, igual que el resto de la interfaz.
-     */
+    /** Abre la ventana de configuracion para ver la dificultad y ajustar la musica. */
     private void mostrarConfiguracion() {
         JPanel panel = new JPanel(new GridLayout(0, 1, 4, 8));
         TemaUndertale.fondoNegro(panel);
@@ -316,19 +282,13 @@ public class CardBattleFrame extends JFrame {
         JOptionPane.showMessageDialog(this, panel, "Configuracion", JOptionPane.PLAIN_MESSAGE);
     }
 
-    /**
-     * Agrega una linea al area de texto del registro de eventos (para lectura corrida) y
-     * tambien la agrega al historial navegable ({@link #historial}, Lista Doble propia).
-     */
+    /** Muestra el ultimo mensaje en pantalla y lo guarda en el historial. */
     private void appendLog(String texto) {
         eventBanner.setText("<html>" + texto.replace("\n", "<br>") + "</html>");
         historial.agregarFinal(texto);
     }
 
-    /**
-     * Abre un dialogo que permite navegar el historial de jugadas (Lista Doblemente Enlazada)
-     * hacia atras y hacia adelante usando su cursor interno, mostrando un evento a la vez.
-     */
+    /** Abre un dialogo para recorrer el historial de jugadas, un evento a la vez. */
     private void mostrarHistorial() {
         if (historial.esVacia()) {
             JOptionPane.showMessageDialog(this, "Aun no hay jugadas en el historial.");
@@ -356,11 +316,7 @@ public class CardBattleFrame extends JFrame {
                 JOptionPane.PLAIN_MESSAGE);
     }
 
-    /**
-     * Abre un dialogo para elegir una familia de cartas y muestra el recorrido recursivo
-     * completo de su {@link ArbolEvolucion} (nivel basico -&gt; mejorado -&gt; legendario),
-     * buscando el arbol por nombre en {@link ArbolesEvolucion} (tabla hash).
-     */
+    /** Abre un dialogo para elegir una familia y ver su arbol de evolucion completo. */
     private void mostrarArbolEvolucion() {
         String[] familias = ArbolesEvolucion.nombresFamilias().toArray(new String[0]);
         if (familias.length == 0) {
@@ -385,20 +341,13 @@ public class CardBattleFrame extends JFrame {
     }
 
     /**
-     * Resuelve, en orden de prioridad (mayor a menor), los efectos de todas las cartas que un
-     * jugador jugo y aun no ha resuelto (ver {@code CardPlayer#getEfectosPendientes}, Cola de
-     * Prioridad propia): las cartas con habilidad especial mas fuerte se procesan antes que las
-     * demas, sin importar en que orden se jugaron dentro de la fase de juego.
-     * <p>
-     * Como las cartas son acciones de un solo uso (estilo Slay the Spire), cada una resuelve su
-     * efecto de inmediato: las de tipo {@code DRAW} hacen robar 1 carta, y el resto aplica su
-     * {@code getDanoDirecto()} (doblado si es Double Strike) como daño directo al oponente. El
-     * combo ofensivo ({@code comboExtra}) y el bono de "Potenciar" del jugador se suman solo al
-     * primer ataque que se resuelva en esta tanda.
+     * Resuelve los efectos pendientes de un jugador en orden de prioridad.
+     * Las cartas de robo hacen jalar 1 carta y las demas hacen daño directo.
+     * El combo y Potenciar solo se suman al primer ataque de esta tanda.
      *
-     * @param jugador    jugador cuyos efectos pendientes se van a resolver
-     * @param oponente   jugador que recibe el daño directo de las acciones de ataque
-     * @param comboExtra daño extra de combo a sumar al primer ataque resuelto (0 si no hubo combo)
+     * @param jugador jugador cuyos efectos pendientes se resuelven
+     * @param oponente jugador que recibe el daño directo
+     * @param comboExtra daño extra de combo para el primer ataque
      */
     private void resolverEfectosPendientes(CardPlayer jugador, CardPlayer oponente, int comboExtra) {
         boolean primerAtaque = true;
@@ -407,7 +356,7 @@ public class CardBattleFrame extends JFrame {
             try {
                 carta = jugador.getEfectosPendientes().desencolar();
             } catch (ColaPrioridadVaciaException e) {
-                break; // no deberia ocurrir: ya se valido con esVacia() justo arriba
+                break; // no deberia pasar; la cola ya estaba validada
             }
             appendLog("Se resuelve el efecto de " + carta.getName() + " (prioridad " + carta.getPrioridadEfecto() + ").");
             if (carta.drawsOnPlay()) {
@@ -422,7 +371,9 @@ public class CardBattleFrame extends JFrame {
             }
 
             int golpes = carta.isDoubleStrike() ? 2 : 1;
-            int dano = carta.getDanoDirecto() * golpes;
+            // El jugador humano siempre hace 1 de daño base por golpe; la CPU usa el daño normal de la carta.
+            int danoBase = jugador == human ? 1 : carta.getDanoDirecto();
+            int dano = danoBase * golpes;
             if (primerAtaque) {
                 dano += comboExtra;
             }
@@ -446,7 +397,7 @@ public class CardBattleFrame extends JFrame {
 
     // ---------------- RENDER ----------------
 
-    /** Reconstruye toda la interfaz (paneles de info, areas de batalla y mano) a partir del estado actual. */
+    /** Refresca toda la interfaz segun el estado actual de la partida. */
     private void refreshUI() {
         infoCpu.setText("  Vida: " + cpu.getLife() + "   Energia: " + cpu.getEnergyAvailable() + "/" + cpu.getEnergyMax()
                 + "   Mano: " + cpu.getHand().tamano() + " cartas   Mazo: " + cpu.getDeck().tamano());
@@ -492,15 +443,15 @@ public class CardBattleFrame extends JFrame {
     }
 
     /**
-     * Crea el boton que representa al lider de un jugador. El area de batalla ya no muestra
-     * "atacantes en la mesa": ahora solo el Lider ataca en su turno, mostrando el daño directo
-     * que causaria ({@link LeaderCard#getDanoAtaque(int)}).
-     * @param p                      jugador dueño del lider
-     * @param interactivoParaAtacar true si el boton debe permitir atacar con este lider (solo el humano)
+     * Crea el boton del lider y, si es el humano, permite atacar con el.
+     *
+     * @param p jugador dueño del lider
+     * @param interactivoParaAtacar true si el boton debe permitir atacar
      */
     private JButton crearBotonLider(CardPlayer p, boolean interactivoParaAtacar) {
         LeaderCard l = p.getLeader();
-        int dano = l.getDanoAtaque(p == human ? human.getHand().tamano() : 0);
+        // El daño base del jugador humano siempre es 1; la CPU usa el calculo normal del lider.
+        int dano = p == human ? 1 : l.getDanoAtaque(0);
         String texto = "<html><center>" + l.getName() + "<br>Dano " + dano
                 + (l.isTransformed() ? "<br>(Transformado)" : "") + (l.isRested() ? "<br>[ya ataco]" : "") + "</center></html>";
         JButton b = new JButton(texto);
@@ -542,7 +493,7 @@ public class CardBattleFrame extends JFrame {
 
     /** Boton para una carta en la mano del jugador: al hacer clic, se juega como una accion instantanea (si hay energia). */
     private JButton crearBotonCartaMano(GameCard c) {
-        String descAccion = c.drawsOnPlay() ? "Roba 1 carta" : ("Dano " + c.getDanoDirecto() + (c.isDoubleStrike() ? " x2" : ""));
+        String descAccion = c.drawsOnPlay() ? "Roba 1 carta" : ("Dano 1" + (c.isDoubleStrike() ? " x2" : ""));
         String texto = "<html><center>" + c.getName() + "<br>" + etiquetaTipo(c.getType())
                 + "<br>" + descAccion + "<br>Costo " + c.getCost()
                 + "<br>Combo +" + c.getComboPower() + "</center></html>";
@@ -558,7 +509,7 @@ public class CardBattleFrame extends JFrame {
         return b;
     }
 
-    /** Boton para una carta ya jugada: al ser una accion de un solo uso, solo sirve de historial visual del turno. */
+    /** Boton de una carta ya jugada; solo sirve como referencia visual del turno. */
     private JButton crearBotonCartaAreaBatalla(GameCard c, boolean esDelJugador) {
         String texto = "<html><center>" + c.getName() + "<br>" + etiquetaTipo(c.getType()) + "</center></html>";
         JButton b = new JButton(texto);
@@ -622,12 +573,13 @@ public class CardBattleFrame extends JFrame {
         refreshUI();
     }
 
-    /** Ataca con el lider del jugador humano: daño directo (con bono de mano), permite combo y roba una carta. */
+    /** Ataca con el lider del jugador humano: daño base de 1, permite combo/Potenciar y roba una carta. */
     private void atacarConLider() {
         if (gameOver || human.getLeader().isRested()) {
             return;
         }
-        int dano = human.getLeader().getDanoAtaque(human.getHand().tamano());
+        // Daño base fijo en 1; el combo y Potenciar todavia pueden sumar daño extra encima.
+        int dano = 1;
         human.getLeader().setRested(true);
         appendLog("Tu lider ataca.");
 
@@ -666,10 +618,10 @@ public class CardBattleFrame extends JFrame {
         }
         btnEndTurn.setEnabled(false);
         appendLog("--- Terminas tu turno ---");
-        ordenTurnos.avanzar(); // el ciclo de turnos (Lista Circular) rota: ahora le toca a la CPU
+        ordenTurnos.avanzar(); // ahora juega la CPU
         turnoCpu();
         if (!gameOver) {
-            ordenTurnos.avanzar(); // el ciclo vuelve a rotar: le toca de nuevo al humano
+            ordenTurnos.avanzar(); // vuelve el turno al humano
             human.startTurn();
             try {
                 human.drawCard();
@@ -686,10 +638,8 @@ public class CardBattleFrame extends JFrame {
     // ---------------- TURNO DE LA CPU ----------------
 
     /**
-     * Ejecuta el turno completo de la CPU: robar, jugar cartas (acciones) mientras tenga
-     * energia, y luego atacar con su lider si no esta girado. El ataque del lider CPU es el
-     * clímax del turno: se dramatiza como una fase de esquive en tiempo real estilo Undertale
-     * (ver {@link #iniciarFaseEsquive}) en vez de resolverse por comparacion de poder.
+     * Ejecuta el turno de la CPU: roba, juega acciones y ataca con su lider.
+     * Ese ataque se resuelve con la fase de esquive de {@link #iniciarFaseEsquive}.
      */
     private void turnoCpu() {
         appendLog("\n=== Turno de la CPU ===");
@@ -701,9 +651,7 @@ public class CardBattleFrame extends JFrame {
             return;
         }
 
-        // La CPU juega cartas mientras tenga energia suficiente. Se itera directamente sobre la
-        // Cola de la mano: como se rompe el bucle for-each apenas se muta la mano (remover/agregar),
-        // el iterador nunca se vuelve a usar despues de la mutacion, asi que no hace falta copiarla.
+        // La CPU juega mientras tenga energia; el ciclo se corta en cuanto la mano cambia.
         boolean jugoAlgo = true;
         while (jugoAlgo) {
             jugoAlgo = false;
@@ -715,9 +663,7 @@ public class CardBattleFrame extends JFrame {
                     appendLog("CPU juega " + c.getName() + ".");
                     int comboCpu = c.drawsOnPlay() ? 0 : cpuComboOfensivoOportunista();
                     cpu.encolarEfectoDeCarta(c);
-                    // Se resuelve de inmediato (en orden de prioridad si hubiera mas de un
-                    // efecto encolado) para que el daño de esta carta se aplique antes de decidir
-                    // si la CPU sigue jugando otra.
+                    // Se resuelve al momento para que ese daño cuente antes de otra jugada.
                     resolverEfectosPendientes(cpu, human, comboCpu);
                     if (gameOver) {
                         return;
@@ -729,10 +675,7 @@ public class CardBattleFrame extends JFrame {
         }
         refreshUI();
 
-        // El Lider CPU ataca una vez por turno (si no esta girado): en vez de comparar poder,
-        // el jugador humano esquiva el ataque en tiempo real (estilo Undertale). Antes de que
-        // empiece la lluvia de balas, puede quemar cartas de su mano en combo para conseguir
-        // "escudos" (golpes que se absorben sin perder vida).
+        // El lider CPU ataca con una fase de esquive; antes puedes usar combo para ganar escudos.
         if (!cpu.getLeader().isRested()) {
             cpu.getLeader().setRested(true);
             int danoPorGolpe = cpu.getLeader().getDanoAtaque(0);
@@ -750,8 +693,7 @@ public class CardBattleFrame extends JFrame {
             double velMinBase = fasesDificiles ? 2.5 : 1.8;
             double velMaxBase = fasesDificiles ? 4.5 : 3.2;
 
-            // La dificultad elegida al iniciar la partida escala la fase de esquive: mas
-            // duracion, balas mas seguidas (intervalo menor) y mas rapidas en Dificil.
+            // La dificultad cambia la duracion, la frecuencia y la velocidad de las balas.
             int duracionMs = (int) Math.round(duracionBase * dificultad.getMultiplicadorDuracion());
             int spawnMinMs = Math.max(120, (int) Math.round(spawnMinBase * dificultad.getMultiplicadorSpawn()));
             int spawnMaxMs = Math.max(spawnMinMs + 80, (int) Math.round(spawnMaxBase * dificultad.getMultiplicadorSpawn()));
@@ -784,18 +726,16 @@ public class CardBattleFrame extends JFrame {
     }
 
     /**
-     * Abre un dialogo modal con la fase de esquive ({@link PanelEsquive}) y espera a que
-     * termine. Como un {@code JDialog} modal sigue despachando eventos (incluidos los del
-     * {@code Timer} interno del panel) mientras esta visible, este metodo puede escribirse de
-     * forma sincrona: no retorna hasta que la fase de esquive termino.
+     * Abre el dialogo modal con {@link PanelEsquive}, espera a que termine
+     * y devuelve los golpes recibidos.
      *
-     * @param duracionMs          duracion de la fase, en milisegundos
-     * @param spawnMinMs          intervalo minimo entre balas nuevas
-     * @param spawnMaxMs          intervalo maximo entre balas nuevas
-     * @param velMin              velocidad minima de las balas
-     * @param velMax              velocidad maxima de las balas
-     * @param escudos             golpes que se absorben sin quitar vida (de combo previo)
-     * @return la cantidad de golpes que el corazon recibio (ya sin contar los escudos)
+     * @param duracionMs duracion de la fase, en milisegundos
+     * @param spawnMinMs intervalo minimo entre balas nuevas
+     * @param spawnMaxMs intervalo maximo entre balas nuevas
+     * @param velMin velocidad minima de las balas
+     * @param velMax velocidad maxima de las balas
+     * @param escudos golpes que se absorben sin quitar vida
+     * @return la cantidad de golpes que recibio el corazon
      */
     private int iniciarFaseEsquive(int duracionMs, int spawnMinMs, int spawnMaxMs,
                                     double velMin, double velMax, int escudos) {
@@ -810,11 +750,7 @@ public class CardBattleFrame extends JFrame {
         return panel.getGolpesRecibidos();
     }
 
-    /**
-     * IA simple de combo ofensivo para la CPU: segun la probabilidad de la dificultad elegida
-     * (ver {@link Dificultad#getProbabilidadComboCpu()}), quema la carta de su mano con menor
-     * poder de combo (para no gastar sus mejores comodines) y suma ese daño extra al ataque.
-     */
+    /** Decide si la CPU usa combo ofensivo y, si lo hace, gasta la carta con menor combo. */
     private int cpuComboOfensivoOportunista() {
         if (cpu.getHand().esVacia() || random.nextDouble() > dificultad.getProbabilidadComboCpu()) {
             return 0;
@@ -836,10 +772,8 @@ public class CardBattleFrame extends JFrame {
     // ---------------- COMBO ----------------
 
     /**
-     * Muestra un dialogo para que el jugador humano elija cartas de su mano para usar en combo
-     * (se queman: se descartan permanentemente) y devuelve la suma de su poder de combo. Se usa
-     * tanto para reforzar un ataque como, defensivamente, para preparar escudos antes de la fase
-     * de esquive del Lider CPU.
+     * Deja elegir cartas de la mano para quemarlas en combo.
+     * Devuelve la suma total de su poder.
      */
     private int preguntarCombo(CardPlayer p, String contexto) {
         if (p.getHand().esVacia()) {

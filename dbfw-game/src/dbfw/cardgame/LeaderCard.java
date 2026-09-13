@@ -1,65 +1,52 @@
 package dbfw.cardgame;
 
 /**
- * Carta de Lider del modo hibrido Undertale/Slay the Spire.
- * <p>
- * El lider representa al jugador (o a la CPU) en la mesa. En el turno del jugador humano, su
- * ataque quita vida de inmediato (sin bloqueo); en el turno de la CPU, su ataque es la fase de
- * esquive estilo Undertale (ver {@code CardBattleFrame#turnoCpu}). En el caso del lider azul,
- * tiene tres habilidades especiales configurables mediante el constructor:
- * <ol>
- *   <li><b>Transformacion</b>: cuando la vida de su dueño cae a 4 o menos, el lider se da la
- *       vuelta y su poder base cambia de {@code basePower} a {@code transformedPower}.</li>
- *   <li><b>Bono por mano reducida</b>: si al momento de atacar la mano tiene
- *       {@code handBonusThreshold} cartas o menos, ataca con {@code handBonusPower} en vez de
- *       su poder normal (su golpe mas fuerte, ver {@link #getDanoAtaque(int)}).</li>
- *   <li><b>Potenciar</b>: una vez por turno, puede sumar {@code boostAmount} de daño extra al
- *       proximo ataque del jugador (carta o lider), pagando {@code boostCost} de energia.</li>
- * </ol>
- * El lider de la CPU se crea sin ninguna de estas habilidades ({@link #crearLiderCpu()}).
+ * Carta de Lider del jugador o de la CPU.
+ * Tiene vida y puede transformarse de forma permanente cuando su dueño baja a 4 o menos.
+ * Algunos lideres tambien tienen habilidades extra, como potenciar el siguiente ataque.
  */
 public class LeaderCard {
     /** Nombre visible del lider. */
     private final String name;
-    /** Poder base antes de transformarse. */
+    /** Poder base normal. */
     private final int basePower;
-    /** Poder base una vez transformado (vida <= 4). */
+    /** Poder base ya transformado. */
     private final int transformedPower;
-    /** True una vez que el lider se transformo (la transformacion es permanente). */
+    /** True si el lider ya se transformo. */
     private boolean transformed = false;
-    /** True si el lider ya ataco este turno. */
+    /** True si el lider ya actuo este turno. */
     private boolean rested = false;
 
-    // Habilidad: ataca con mas poder si la mano tiene pocas cartas.
-    /** True si este lider tiene la habilidad de atacar mas fuerte con la mano reducida. */
+    // Bono por mano reducida.
+    /** True si este lider pega mas fuerte con poca mano. */
     private final boolean hasHandBonus;
-    /** Cantidad maxima de cartas en mano para que aplique el bono de ataque. */
+    /** Maximo de cartas en mano para activar el bono. */
     private final int handBonusThreshold;
-    /** Poder de ataque cuando aplica el bono de mano reducida. */
+    /** Poder usado cuando el bono esta activo. */
     private final int handBonusPower;
 
-    // Habilidad: puede sumar daño extra al proximo ataque del jugador (una vez por turno).
-    /** True si este lider puede usar la habilidad de potenciar el proximo ataque. */
+    // Potenciar el siguiente ataque.
+    /** True si este lider puede potenciar un ataque. */
     private final boolean canBoost;
-    /** Puntos de daño extra que otorga la habilidad de potenciar al proximo ataque. */
+    /** Daño extra que da la habilidad de potenciar. */
     private final int boostAmount;
-    /** Costo en energia de la habilidad de potenciar. */
+    /** Costo de energia de la habilidad. */
     private final int boostCost;
-    /** True si ya se uso la habilidad de potenciar en el turno actual (se resetea cada turno). */
+    /** True si ya se uso potenciar este turno. */
     private boolean boostUsedThisTurn = false;
 
     /**
-     * Crea una carta de Lider con las habilidades indicadas.
+     * Crea una carta de Lider con sus datos y habilidades.
      *
      * @param name               nombre del lider
-     * @param basePower          poder base antes de transformarse
-     * @param transformedPower   poder base despues de transformarse (vida <= 4)
-     * @param hasHandBonus       si tiene la habilidad de atacar mas fuerte con poca mano
-     * @param handBonusThreshold cartas en mano (o menos) para activar el bono de ataque
-     * @param handBonusPower     poder de ataque cuando el bono esta activo
-     * @param canBoost           si puede potenciar el proximo ataque una vez por turno
-     * @param boostAmount        puntos de daño extra que otorga la habilidad de potenciar
-     * @param boostCost          costo en energia de la habilidad de potenciar
+     * @param basePower          poder base normal
+     * @param transformedPower   poder base transformado
+     * @param hasHandBonus       si tiene bono por poca mano
+     * @param handBonusThreshold tope de cartas para activar ese bono
+     * @param handBonusPower     poder con el bono activo
+     * @param canBoost           si puede potenciar el siguiente ataque
+     * @param boostAmount        daño extra de potenciar
+     * @param boostCost          costo de energia de potenciar
      */
     public LeaderCard(String name, int basePower, int transformedPower,
                        boolean hasHandBonus, int handBonusThreshold, int handBonusPower,
@@ -90,17 +77,17 @@ public class LeaderCard {
         return name;
     }
 
-    /** @return true si el lider ya se transformo (vida cayo a 4 o menos alguna vez). */
+    /** @return true si el lider ya se transformo. */
     public boolean isTransformed() {
         return transformed;
     }
 
-    /** @return true si el lider ya actuo este turno (atacar o bloquear). */
+    /** @return true si el lider ya actuo este turno. */
     public boolean isRested() {
         return rested;
     }
 
-    /** Marca o desmarca al lider como "girado" (ya actuo este turno). */
+    /** Marca al lider como ya usado o listo. */
     public void setRested(boolean rested) {
         this.rested = rested;
     }
@@ -130,12 +117,12 @@ public class LeaderCard {
         this.boostUsedThisTurn = used;
     }
 
-    /** Poder base actual (considerando si ya se transformo). */
+    /** Poder base actual. */
     public int getCurrentBasePower() {
         return transformed ? transformedPower : basePower;
     }
 
-    /** Revisa la vida actual y transforma al lider si corresponde (vida <= 4). */
+    /** Transforma al lider si la vida llega a 4 o menos. */
     public void checkTransform(int vidaActual) {
         if (!transformed && vidaActual <= 4) {
             transformed = true;
@@ -143,8 +130,9 @@ public class LeaderCard {
     }
 
     /**
-     * Poder de ataque, considerando el bono por mano reducida (solo aplica al atacar).
-     * @param handSize cantidad de cartas en la mano del dueño de este lider en el momento del ataque.
+     * Poder al atacar; puede aplicar el bono por poca mano.
+     *
+     * @param handSize cartas en mano al momento del ataque
      */
     public int getAttackPower(int handSize) {
         if (hasHandBonus && handSize <= handBonusThreshold) {
@@ -153,21 +141,16 @@ public class LeaderCard {
         return getCurrentBasePower();
     }
 
-    /** Poder de defensa (bloqueo): no aplica el bono de mano reducida. */
+    /** Poder al defender; no usa el bono de mano reducida. */
     public int getDefensePower() {
         return getCurrentBasePower();
     }
 
     /**
-     * Daño directo que este lider inflige al atacar, traducido del poder de ataque
-     * ({@link #getAttackPower(int)}) a puntos de vida: entre mayor el poder, mas vida quita.
-     * El ataque del lider ya no se compara contra ninguna carta bloqueadora: en el turno del
-     * jugador humano se aplica de inmediato, y en el turno de la CPU es el daño potencial de la
-     * fase de esquive estilo Undertale (ver {@code CardBattleFrame#turnoCpu}).
+     * Convierte el poder de ataque del lider en daño directo.
      *
-     * @param handSize cantidad de cartas en la mano del dueño de este lider en el momento del ataque
-     * @return puntos de vida que pierde el rival: 1 con el poder base (15000), 2 transformado
-     *         (20000) y 4 con el bono de mano reducida (35000, el golpe mas fuerte del lider azul)
+     * @param handSize cartas en mano al momento del ataque
+     * @return daño directo del lider
      */
     public int getDanoAtaque(int handSize) {
         int poder = getAttackPower(handSize);

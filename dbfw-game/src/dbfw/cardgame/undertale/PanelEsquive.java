@@ -22,35 +22,20 @@ import javax.swing.KeyStroke;
 import javax.swing.Timer;
 
 /**
- * Mini-juego de esquive en tiempo real, al estilo de las peleas de Undertale: el jugador mueve
- * un corazon con las flechas del teclado dentro de una caja mientras "balas" (proyectiles)
- * cruzan la pantalla; cada bala que toca al corazon quita una vida de esta fase (o consume un
- * escudo, si el jugador tiene alguno preparado por combo defensivo).
- * <p>
- * Representa, en el hibrido Undertale/Slay the Spire de este juego, el ataque del Lider CPU en
- * su propio turno: en vez de resolverse por comparacion de poder, el jugador humano lo esquiva
- * (o no) en tiempo real. Se usa desde {@code CardBattleFrame} dentro de un {@code JDialog}
- * modal: como los dialogos modales de Swing siguen despachando eventos (incluyendo los del
- * {@link Timer} de este panel) mientras estan visibles, el metodo que los abre puede esperar
- * de forma sincrona a que la fase termine y despues leer {@link #getGolpesRecibidos()}.
- * <p>
- * Sobre el area de esquive se dibuja una "zona del jefe" con un stickman animado, inspirada en
- * la pelea de Undyne the Undying: cambia de postura segun lo que esta haciendo (reposo, apuntar
- * una lanza, invocar una ola, alzar los brazos para una rafaga circular o extender ambos brazos
- * para el ataque en cruz), se ilumina con un aura de color distinto por ataque, y muestra un
- * letrero de dialogo corto. Los patrones de balas rotan entre cinco variantes (ver
- * {@link #actualizarPatronDelJefe()}): la lluvia normal de fondo, una pared de lanzas
- * telegrafiada con un hueco para esquivar, oleadas con movimiento ondulado, una pared de lanzas
- * simultanea en los 4 lados (mas dificil) y una rafaga circular que se expande desde el jefe.
- * Mientras se telegrafia una pared de lanzas, se dibuja ademas un indicador por carril (rojo
- * translucido donde va a salir una lanza, verde donde esta el hueco seguro) para que el jugador
- * sepa de antemano hacia donde moverse.
+ * Minijuego de esquive en tiempo real al estilo Undertale:
+ * el jugador mueve un corazon para esquivar balas.
+ * Representa el ataque del lider de la CPU en su turno.
+ * Los patrones rotan entre lluvia, lanzas, ondas, cruz y espiral.
+ * El jefe cambia de pose y animacion segun el ataque,
+ * inspirado en Undyne the Undying.
+ * En las lanzas, se dibuja un indicador rojo/verde por carril
+ * para avisar por donde van a salir.
  */
 public class PanelEsquive extends JPanel {
     private static final int ANCHO = 380;
-    /** Alto de la zona de esquive (balas y corazon); coincide con el area de juego original. */
+    /** Alto de la arena donde se mueve el corazon y pasan las balas. */
     private static final int ALTO_ARENA = 260;
-    /** Alto de la franja superior donde se anima el jefe (el Lider CPU). */
+    /** Alto de la franja superior donde se dibuja el jefe. */
     private static final int ALTO_JEFE = 90;
     private static final int ALTO_TOTAL = ALTO_JEFE + ALTO_ARENA;
 
@@ -59,18 +44,18 @@ public class PanelEsquive extends JPanel {
     private static final int MS_POR_TICK = 16;
     private static final long INVULNERABILIDAD_MS = 700;
 
-    /** Cada cuanto se decide el siguiente patron especial, en milisegundos. */
+    /** Tiempo entre cambios de patron especial. */
     private static final long CICLO_PATRON_MS = 2600;
-    /** Cuanto dura la advertencia antes de que disparen las lanzas (con indicador de carriles), en milisegundos. */
+    /** Tiempo de aviso antes de disparar lanzas. */
     private static final long TELEGRAFO_LANZAS_MS = 550;
-    /** Cuanto dura la breve "carga" antes de una ola o una rafaga circular, en milisegundos. */
+    /** Tiempo de carga antes de ondas o espiral. */
     private static final long CARGA_GENERICA_MS = 380;
-    /** Cuantos carriles se reparten a lo largo de un lado al disparar una pared de lanzas. */
+    /** Cantidad de carriles usados por las lanzas. */
     private static final int CANTIDAD_LANZAS = 7;
-    /** Ancho (como fraccion del lado) del hueco seguro dentro de una pared de lanzas. */
+    /** Ancho relativo del hueco seguro en la pared de lanzas. */
     private static final double HUECO_LANZAS_ANCHO = 0.16;
 
-    /** Los cinco patrones de ataque del jefe, usados para elegir la postura y el letrero. */
+    /** Cinco patrones de ataque del jefe. */
     private enum PatronJefe { LLUVIA, LANZAS, ONDAS, CRUZ, ESPIRAL }
 
     private final int duracionMs;
@@ -82,7 +67,7 @@ public class PanelEsquive extends JPanel {
 
     private final List<Bala> balas = new ArrayList<>();
     private final Random random = new Random();
-    /** Desfase aleatorio de la rotacion de patrones, para que cada fase de esquive no empiece siempre igual. */
+    /** Desfase aleatorio para no empezar siempre con el mismo patron. */
     private final int desfaseCiclo = random.nextInt(5);
     private final Timer timerJuego;
 
@@ -98,7 +83,7 @@ public class PanelEsquive extends JPanel {
     private boolean terminado = false;
     private Runnable alTerminar;
 
-    // Estado de la animacion y los patrones del jefe (ver dibujarJefe() y actualizarPatronDelJefe()).
+    // Estado visual y del patron actual del jefe.
     private long ultimoCicloIniciado = -1;
     private PatronJefe patronActual = PatronJefe.LLUVIA;
     private boolean jefeAtacando = false;
@@ -107,19 +92,19 @@ public class PanelEsquive extends JPanel {
     private int[] lanzasLadosActivos = new int[0];
     private double lanzasHuecoCentro = 0.5;
     private long lanzasDispararEnMs = -1;
-    /** Tiempo (o -1 si no aplica) en el que se libera el ataque que se esta "cargando" (ondas/espiral). */
+    /** Momento en que se libera el ataque cargado, o -1 si no hay carga. */
     private long cargaDispararEnMs = -1;
     private Runnable cargaAccion;
 
     /**
-     * Crea el panel de esquive con los parametros de dificultad de esta fase.
+     * Crea el panel de esquive con los valores de esta fase.
      *
-     * @param duracionMs          duracion total de la fase, en milisegundos
-     * @param intervaloSpawnMinMs tiempo minimo entre balas nuevas, en milisegundos
-     * @param intervaloSpawnMaxMs tiempo maximo entre balas nuevas, en milisegundos
-     * @param velocidadBalaMin    velocidad minima de una bala (pixeles por tick de 16ms)
-     * @param velocidadBalaMax    velocidad maxima de una bala (pixeles por tick de 16ms)
-     * @param escudosIniciales    golpes que se absorben sin quitar vida (por combo defensivo)
+     * @param duracionMs duracion total de la fase, en milisegundos
+     * @param intervaloSpawnMinMs tiempo minimo entre balas nuevas
+     * @param intervaloSpawnMaxMs tiempo maximo entre balas nuevas
+     * @param velocidadBalaMin velocidad minima de una bala
+     * @param velocidadBalaMax velocidad maxima de una bala
+     * @param escudosIniciales golpes que se absorben sin quitar vida
      */
     public PanelEsquive(int duracionMs, int intervaloSpawnMinMs, int intervaloSpawnMaxMs,
                          double velocidadBalaMin, double velocidadBalaMax, int escudosIniciales) {
@@ -137,7 +122,7 @@ public class PanelEsquive extends JPanel {
         timerJuego = new Timer(MS_POR_TICK, e -> tick());
     }
 
-    /** Registra las flechas del teclado (WHEN_IN_FOCUSED_WINDOW: funcionan aunque el foco lo tenga otro componente de la ventana). */
+    /** Registra las flechas del teclado aunque el foco este en otro componente. */
     private void configurarControles() {
         registrarTecla(KeyEvent.VK_UP, "arriba");
         registrarTecla(KeyEvent.VK_DOWN, "abajo");
@@ -171,11 +156,7 @@ public class PanelEsquive extends JPanel {
         }
     }
 
-    /**
-     * Arranca la fase: pide el foco de teclado y comienza el bucle de juego (60 fps aprox.).
-     * Cuando la fase termina (se acaba el tiempo), se ejecuta el callback indicado; en ese
-     * punto {@link #getGolpesRecibidos()} ya tiene el resultado final.
-     */
+    /** Inicia la fase, toma el foco y arranca el bucle. Al terminar, ejecuta el callback. */
     public void iniciar(Runnable alTerminar) {
         this.alTerminar = alTerminar;
         requestFocusInWindow();
@@ -183,11 +164,7 @@ public class PanelEsquive extends JPanel {
         timerJuego.start();
     }
 
-    /**
-     * Un paso del bucle de juego: mover corazon y balas, decidir el patron especial del ciclo
-     * actual (ver {@link #actualizarPatronDelJefe()}), generar la lluvia de balas de fondo,
-     * revisar colisiones y comprobar si la fase ya termino.
-     */
+    /** Ejecuta un paso del juego: mueve, genera balas, revisa colisiones y cierra la fase si toca. */
     private void tick() {
         if (terminado) {
             return;
@@ -226,11 +203,8 @@ public class PanelEsquive extends JPanel {
     }
 
     /**
-     * Decide, cada {@link #CICLO_PATRON_MS}, cual de los cinco patrones de ataque le toca al
-     * jefe (0 = solo sigue la lluvia normal, 1 = pared de lanzas en un lado con hueco, 2 = ola
-     * ondulada, 3 = pared de lanzas simultanea en los 4 lados con un solo hueco en comun, 4 =
-     * rafaga circular), y dispara el ataque telegrafiado/cargado cuando su tiempo de espera
-     * termina (ver {@link #lanzasDispararEnMs} y {@link #cargaDispararEnMs}).
+     * Cambia el patron del jefe por ciclos.
+     * Tambien lanza los ataques telegrafiados o cargados cuando llega su momento.
      */
     private void actualizarPatronDelJefe() {
         long ciclo = tiempoTranscurridoMs / CICLO_PATRON_MS;
@@ -276,7 +250,7 @@ public class PanelEsquive extends JPanel {
         }
     }
 
-    /** Genera una bala nueva desde un borde aleatorio, apuntando hacia una zona cercana al centro de la arena. */
+    /** Genera una bala desde un borde, apuntando a una zona cercana al centro. */
     private void generarBala() {
         double velocidad = velocidadBalaMin + random.nextDouble() * (velocidadBalaMax - velocidadBalaMin);
         int lado = random.nextInt(4); // 0=arriba, 1=abajo, 2=izquierda, 3=derecha
@@ -287,8 +261,7 @@ public class PanelEsquive extends JPanel {
             case 2: origenX = -10; origenY = ALTO_JEFE + random.nextInt(ALTO_ARENA); break;
             default: origenX = ANCHO + 10; origenY = ALTO_JEFE + random.nextInt(ALTO_ARENA); break;
         }
-        // Apunta hacia un punto aleatorio dentro de la arena (no siempre el centro exacto), para
-        // que las trayectorias varien y no sean todas paralelas.
+        // Apunta a una zona cercana al centro para variar las trayectorias.
         double destinoX = ANCHO * 0.2 + random.nextDouble() * ANCHO * 0.6;
         double destinoY = ALTO_JEFE + ALTO_ARENA * 0.2 + random.nextDouble() * ALTO_ARENA * 0.6;
         double dx = destinoX - origenX;
@@ -300,12 +273,10 @@ public class PanelEsquive extends JPanel {
     }
 
     /**
-     * Empieza la advertencia de una pared de lanzas: fija los lados que van a disparar (uno
-     * solo para el patron "Lanzas", los 4 a la vez para el patron "Cruz") y un hueco seguro en
-     * comun al azar, y programa el disparo real para {@link #TELEGRAFO_LANZAS_MS} despues.
-     * Mientras se telegrafia, {@link #dibujarIndicadoresLanzas} muestra el carril de cada lado.
+     * Activa el aviso previo de lanzas, fija el hueco seguro
+     * y programa el disparo real.
      *
-     * @param lados lados (0=arriba, 1=abajo, 2=izquierda, 3=derecha) que van a disparar lanzas
+     * @param lados lados que van a disparar lanzas
      */
     private void iniciarTelegrafoLanzas(int[] lados) {
         lanzasLadosActivos = lados;
@@ -316,7 +287,7 @@ public class PanelEsquive extends JPanel {
         lanzasDispararEnMs = tiempoTranscurridoMs + TELEGRAFO_LANZAS_MS;
     }
 
-    /** Dispara la pared de lanzas en todos los lados telegrafiados (ver {@link #iniciarTelegrafoLanzas}). */
+    /** Dispara lanzas desde todos los lados que estaban avisados. */
     private void dispararLanzas() {
         lanzasTelegrafiando = false;
         for (int lado : lanzasLadosActivos) {
@@ -325,16 +296,13 @@ public class PanelEsquive extends JPanel {
         jefeLungeHastaMs = tiempoTranscurridoMs + 260;
     }
 
-    /**
-     * Dispara una pared de lanzas desde un lado especifico, dejando un hueco seguro cerca de
-     * {@link #lanzasHuecoCentro} (estilo las paredes de lanzas de Undyne the Undying).
-     */
+    /** Dispara una pared de lanzas desde un lado, dejando un hueco seguro. */
     private void dispararLanzasEnLado(int lado) {
         double velocidad = velocidadBalaMax * 1.3;
         for (int i = 0; i < CANTIDAD_LANZAS; i++) {
             double frac = (i + 0.5) / CANTIDAD_LANZAS;
             if (Math.abs(frac - lanzasHuecoCentro) < HUECO_LANZAS_ANCHO) {
-                continue; // hueco seguro: aqui no sale ninguna lanza
+                continue; // hueco seguro: aqui no sale lanza
             }
             double vx2, vy2, x0, y0;
             switch (lado) {
@@ -347,11 +315,7 @@ public class PanelEsquive extends JPanel {
         }
     }
 
-    /**
-     * Genera una oleada de 3 balas con movimiento ondulado que cruzan la arena de lado a lado
-     * (estilo el ataque de onda de Undyne), escalonadas en altura y en fase para que su
-     * oscilacion no coincida.
-     */
+    /** Genera una oleada de 3 balas onduladas que cruza la arena de lado a lado. */
     private void generarOleadaOndas() {
         boolean desdeIzquierda = random.nextBoolean();
         double velocidad = (velocidadBalaMin + velocidadBalaMax) / 2.0;
@@ -365,11 +329,7 @@ public class PanelEsquive extends JPanel {
         jefeLungeHastaMs = tiempoTranscurridoMs + 260;
     }
 
-    /**
-     * Genera una rafaga circular de balas que se expanden en todas direcciones desde la
-     * posicion del jefe (patron "Espiral"): el mas dificil de esquivar porque no deja ningun
-     * lado completamente libre, asi que hay que moverse entre los huecos que quedan entre balas.
-     */
+    /** Genera una rafaga circular desde el jefe hacia todas las direcciones. */
     private void generarRafagaCircular() {
         int cantidad = 16;
         double velocidad = (velocidadBalaMin + velocidadBalaMax) / 2.0 * 1.1;
@@ -447,17 +407,15 @@ public class PanelEsquive extends JPanel {
     }
 
     /**
-     * Dibuja, mientras se telegrafia una pared de lanzas, una franja por cada carril a lo largo
-     * del lado (o lados, en el patron Cruz) que va a disparar: roja translucida donde va a salir
-     * una lanza y verde donde esta el hueco seguro, para que el jugador sepa de antemano hacia
-     * donde moverse antes de que las lanzas salgan.
+     * Dibuja el aviso rojo/verde de cada carril
+     * mientras las lanzas se estan cargando.
      */
     private void dibujarIndicadoresLanzas(Graphics2D g) {
         if (!lanzasTelegrafiando) {
             return;
         }
         for (int lado : lanzasLadosActivos) {
-            boolean horizontal = lado == 0 || lado == 1; // arriba/abajo -> carriles a lo largo de X
+            boolean horizontal = lado == 0 || lado == 1; // arriba y abajo usan carriles en X
             for (int i = 0; i < CANTIDAD_LANZAS; i++) {
                 double frac0 = (double) i / CANTIDAD_LANZAS;
                 double frac1 = (double) (i + 1) / CANTIDAD_LANZAS;
@@ -480,7 +438,7 @@ public class PanelEsquive extends JPanel {
         }
     }
 
-    /** Dibuja una bala: un hueso circular normal, o una lanza alargada y girada segun su direccion si {@code isLanza()}. */
+    /** Dibuja una bala normal o una lanza girada segun su direccion. */
     private void dibujarBala(Graphics2D g, Bala b) {
         if (b.isLanza()) {
             g.setColor(TemaUndertale.HUESO);
@@ -498,10 +456,8 @@ public class PanelEsquive extends JPanel {
     }
 
     /**
-     * Dibuja la zona del jefe (el Lider CPU): un stickman que cambia de postura segun el patron
-     * de ataque actual ({@link PatronJefe}), con un aura de color distinto por ataque, un vaiven
-     * y un leve patrullaje lateral en reposo, y un letrero de dialogo corto (estilo Undyne the
-     * Undying), ademas de la linea de advertencia por cada lado que este telegrafiando lanzas.
+     * Dibuja al jefe con su pose, aura y frase segun el patron actual.
+     * Si hay lanzas en carga, tambien marca los bordes de salida.
      */
     private void dibujarJefe(Graphics2D g) {
         g.setColor(new Color(6, 16, 10));
@@ -511,8 +467,7 @@ public class PanelEsquive extends JPanel {
 
         boolean cargando = cargaDispararEnMs >= 0;
         double bob = Math.sin(tiempoTranscurridoMs / 180.0) * 4;
-        // Patrullaje lateral lento en reposo; se detiene durante un ataque para que el jugador
-        // pueda anticipar mejor la posicion del jefe mientras es peligroso.
+        // En reposo se mueve un poco; al atacar se queda quieto para verse mas claro.
         double deriva = jefeAtacando ? 0 : Math.sin(tiempoTranscurridoMs / 900.0) * 14;
         boolean lungeando = tiempoTranscurridoMs < jefeLungeHastaMs;
         double cx = ANCHO / 2.0 + deriva;
@@ -540,7 +495,7 @@ public class PanelEsquive extends JPanel {
 
         switch (patronActual) {
             case CRUZ:
-                // Ambos brazos extendidos, cada uno sosteniendo una lanza: la postura mas amenazante.
+                // Brazos abiertos con una lanza a cada lado.
                 g.drawLine((int) cx, (int) cy, (int) (cx - 26), (int) (cy - 4));
                 g.drawLine((int) cx, (int) cy, (int) (cx + 26), (int) (cy - 4));
                 g.setColor(new Color(255, 210, 120));
@@ -548,17 +503,17 @@ public class PanelEsquive extends JPanel {
                 g.drawLine((int) (cx + 26), (int) (cy - 4), (int) (cx + 44), (int) (cy - 4));
                 break;
             case ESPIRAL:
-                // Postura de "rugido": ambos brazos en alto formando una V, antes de la rafaga.
+                // Brazos arriba antes de la rafaga.
                 g.drawLine((int) cx, (int) cy, (int) (cx - 18), (int) (cy - 20));
                 g.drawLine((int) cx, (int) cy, (int) (cx + 18), (int) (cy - 20));
                 break;
             case ONDAS:
-                // Brazos hacia el frente y abajo, como conjurando una ola de energia.
+                // Brazos al frente como cargando la ola.
                 g.drawLine((int) cx, (int) (cy + 2), (int) (cx - 16), (int) (cy + 12));
                 g.drawLine((int) cx, (int) (cy + 2), (int) (cx + 16), (int) (cy + 12));
                 break;
             default:
-                // Postura basica: un brazo relajado, el otro sostiene la lanza en alto.
+                // Pose base con una lanza en alto.
                 g.drawLine((int) cx, (int) cy, (int) (cx - 14), (int) (cy + 8));
                 g.drawLine((int) cx, (int) cy, (int) (cx + 16), (int) (cy - 14));
                 g.setColor(new Color(255, 210, 120));
@@ -601,7 +556,7 @@ public class PanelEsquive extends JPanel {
         return "¡Nadie escapa de mi ataque!";
     }
 
-    /** Dibuja una forma de corazon simple (dos lobulos + una punta) centrada en (cx, cy). */
+    /** Dibuja un corazon simple centrado en (cx, cy). */
     private Polygon formaCorazon(double cx, double cy, int r) {
         Polygon p = new Polygon();
         p.addPoint((int) cx, (int) (cy + r));

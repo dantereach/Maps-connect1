@@ -9,14 +9,8 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 
 /**
- * Construye y expone, indexado por nombre de familia mediante una tabla hash
- * ({@link java.util.HashMap}), el {@link ArbolEvolucion} de cada familia de cartas del
- * catalogo: nivel 1 (basica, la que ya se usa en el mazo), nivel 2 (mejorada) y nivel 3
- * (legendaria), conservando el mismo tipo de efecto en cada nivel pero con mas poder base.
- * <p>
- * Esta clase es la que se muestra en el dialogo "Ver Arbol de Evolucion" de
- * {@code CardBattleFrame}: al elegir una familia se busca su arbol por nombre (O(1)) y se
- * recorre de forma recursiva con {@link ArbolEvolucion#recorrerCompleto}.
+ * Reune los arboles de evolucion de las familias de cartas y los guarda por nombre en una tabla hash.
+ * Se usa en "Ver Arbol de Evolucion": busca la familia en O(1) y luego recorre su arbol.
  */
 public final class ArbolesEvolucion {
 
@@ -35,12 +29,11 @@ public final class ArbolesEvolucion {
     }
 
     private ArbolesEvolucion() {
-        // Clase de solo metodos estaticos: no se instancia.
+        // Clase utilitaria: no se instancia.
     }
 
     /**
-     * Crea el arbol de tres niveles de una familia (basica -&gt; mejorada -&gt; legendaria) y lo
-     * registra en la tabla hash bajo el nombre de su nivel basico.
+     * Crea la linea basica -&gt; mejorada -&gt; legendaria de una familia y la guarda en la tabla hash.
      */
     private static void registrarLinea(String nombreBasica, String nombreMejorada, String nombreLegendaria,
                                         int poderBasica, int poderMejorada, int poderLegendaria, CardType tipo) {
@@ -51,8 +44,7 @@ public final class ArbolesEvolucion {
     }
 
     /**
-     * Busca, por el nombre de la familia basica (tabla hash, O(1)), el arbol de evolucion
-     * completo de esa familia de cartas.
+     * Busca el arbol de evolucion de una familia por el nombre de su carta basica.
      *
      * @param nombreFamiliaBasica nombre del nivel basico de la familia (ej. "Ataque Fuerte")
      * @return el arbol de evolucion de esa familia

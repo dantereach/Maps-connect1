@@ -1,8 +1,8 @@
 package dbfw.cardgame.excepciones;
 
 /**
- * Excepcion propia lanzada cuando se intenta ver o quitar el elemento al frente de una
- * {@link dbfw.cardgame.estructuras.Cola} que no tiene elementos.
+ * Se lanza cuando se intenta ver o quitar el frente de una
+ * {@link dbfw.cardgame.estructuras.Cola} vacia.
  */
 public class ColaVaciaException extends Exception {
     public ColaVaciaException(String mensaje) {

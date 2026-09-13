@@ -1,17 +1,9 @@
 package dbfw.cardgame;
 
 /**
- * Nivel de dificultad de la partida, elegido en un dialogo antes de iniciar (ver
- * {@code dbfw.Main}). Ajusta tres cosas para hacer la pelea mas o menos dificil:
- * <ol>
- *   <li>La composicion del mazo de la CPU: cuantas copias de cada familia lleva (mas copias de
- *       Ataque Fuerte/Golpe Doble en dificultades altas, ver {@link #getConteoPorFamilia()}).</li>
- *   <li>Que tan seguido la CPU quema una carta en combo ofensivo al atacar
- *       (ver {@link #getProbabilidadComboCpu()}).</li>
- *   <li>La fase de esquive estilo Undertale del ataque del Lider CPU: su duracion, la
- *       frecuencia con la que aparecen balas nuevas y su velocidad
- *       (ver {@code CardBattleFrame#turnoCpu} y los multiplicadores de esta clase).</li>
- * </ol>
+ * Niveles de dificultad de la partida.
+ * Cada uno cambia el mazo de la CPU, la probabilidad de que haga combo
+ * y la duracion, frecuencia y velocidad del minijuego de esquive.
  */
 public enum Dificultad {
     FACIL("Facil", new int[]{8, 7, 6, 3}, 0.15, 0.85, 1.25, 0.85),
@@ -45,8 +37,8 @@ public enum Dificultad {
     }
 
     /**
-     * @return cuantas copias de cada familia lleva el mazo de la CPU, en el orden Ataque Basico,
-     *         Jalar Carta, Ataque Fuerte, Golpe Doble (el arreglo siempre suma 24).
+     * @return copias por familia del mazo de la CPU, en el orden Ataque Basico, Jalar Carta,
+     *         Ataque Fuerte y Golpe Doble
      */
     public int[] getConteoPorFamilia() {
         return conteoPorFamilia;
