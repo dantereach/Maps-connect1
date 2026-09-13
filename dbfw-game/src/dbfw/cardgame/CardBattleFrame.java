@@ -111,7 +111,8 @@ public class CardBattleFrame extends JFrame {
         this.dificultad = dificultad;
 
         human = new CardPlayer("Tu", LeaderCard.crearLiderAzul());
-        cpu = new CardPlayer("CPU", LeaderCard.crearLiderCpu());
+        // La CPU tiene el doble de vida del jugador para compensar su daño base mas bajo.
+        cpu = new CardPlayer("CPU", LeaderCard.crearLiderCpu(), CardPlayer.VIDA_INICIAL * 2);
         human.buildDeck();
         cpu.buildDeck(dificultad.getConteoPorFamilia());
         human.drawInitialHand(5);
@@ -370,7 +371,9 @@ public class CardBattleFrame extends JFrame {
             }
 
             int golpes = carta.isDoubleStrike() ? 2 : 1;
-            int dano = carta.getDanoDirecto() * golpes;
+            // El jugador humano siempre hace 1 de daño base por golpe; la CPU usa el daño normal de la carta.
+            int danoBase = jugador == human ? 1 : carta.getDanoDirecto();
+            int dano = danoBase * golpes;
             if (primerAtaque) {
                 dano += comboExtra;
             }
@@ -447,7 +450,8 @@ public class CardBattleFrame extends JFrame {
      */
     private JButton crearBotonLider(CardPlayer p, boolean interactivoParaAtacar) {
         LeaderCard l = p.getLeader();
-        int dano = l.getDanoAtaque(p == human ? human.getHand().tamano() : 0);
+        // El daño base del jugador humano siempre es 1; la CPU usa el calculo normal del lider.
+        int dano = p == human ? 1 : l.getDanoAtaque(0);
         String texto = "<html><center>" + l.getName() + "<br>Dano " + dano
                 + (l.isTransformed() ? "<br>(Transformado)" : "") + (l.isRested() ? "<br>[ya ataco]" : "") + "</center></html>";
         JButton b = new JButton(texto);
@@ -489,7 +493,7 @@ public class CardBattleFrame extends JFrame {
 
     /** Boton para una carta en la mano del jugador: al hacer clic, se juega como una accion instantanea (si hay energia). */
     private JButton crearBotonCartaMano(GameCard c) {
-        String descAccion = c.drawsOnPlay() ? "Roba 1 carta" : ("Dano " + c.getDanoDirecto() + (c.isDoubleStrike() ? " x2" : ""));
+        String descAccion = c.drawsOnPlay() ? "Roba 1 carta" : ("Dano 1" + (c.isDoubleStrike() ? " x2" : ""));
         String texto = "<html><center>" + c.getName() + "<br>" + etiquetaTipo(c.getType())
                 + "<br>" + descAccion + "<br>Costo " + c.getCost()
                 + "<br>Combo +" + c.getComboPower() + "</center></html>";
@@ -569,12 +573,13 @@ public class CardBattleFrame extends JFrame {
         refreshUI();
     }
 
-    /** Ataca con el lider del jugador humano: daño directo (con bono de mano), permite combo y roba una carta. */
+    /** Ataca con el lider del jugador humano: daño base de 1, permite combo/Potenciar y roba una carta. */
     private void atacarConLider() {
         if (gameOver || human.getLeader().isRested()) {
             return;
         }
-        int dano = human.getLeader().getDanoAtaque(human.getHand().tamano());
+        // Daño base fijo en 1; el combo y Potenciar todavia pueden sumar daño extra encima.
+        int dano = 1;
         human.getLeader().setRested(true);
         appendLog("Tu lider ataca.");
 
