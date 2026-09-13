@@ -9,24 +9,22 @@ import javax.swing.UIManager;
 
 /**
  * Punto de entrada del juego.
- * Por defecto abre el juego de cartas (estilo Dragon Ball Fusion World{}), pidiendo antes la
- * dificultad de la partida (ver {@link Dificultad}).
- *
+ * Abre la interfaz de cartas y antes pide la {@link Dificultad}.
+ * Si el dialogo se cierra, usa dificultad normal.
  */
 public class Main {
     /**
-     * Metodo principal: elige que modo de juego lanzar segun el argumento recibido.
-     * @param args argumentos de linea de comandos; ver la documentacion de la clase para las opciones.
+     * Metodo principal.
+     * Si recibe "texto", deja ese modo reservado; en otro caso abre la interfaz grafica.
+     *
+     * @param args argumentos de linea de comandos
      */
     public static void main(String[] args) {
-        // Se fuerza el look and feel "Metal" (multiplataforma) para que los colores negro/verde
-        // del tema estilo Undertale (ver TemaUndertale) se pinten igual en botones y paneles sin
-        // importar el sistema operativo; algunos look and feel nativos ignoran el color de fondo
-        // personalizado de los JButton.
+        // Usa el look and feel Metal para que el tema negro/verde se vea igual en cualquier sistema.
         try {
             UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
         } catch (Exception ignored) {
-            // Si falla, simplemente se usa el look and feel por defecto del sistema.
+            // Si falla, se usa el estilo del sistema.
         }
         if (args.length > 0 && args[0].equalsIgnoreCase("texto")) {
 
@@ -39,11 +37,10 @@ public class Main {
     }
 
     /**
-     * Muestra un dialogo de seleccion antes de iniciar la partida para elegir la dificultad
-     * (ver {@link Dificultad}: afecta el mazo de la CPU, su IA de combo y la fase de esquive
-     * del ataque del Lider CPU). Si el jugador cierra el dialogo sin elegir, se usa Normal.
+     * Muestra un dialogo para elegir la dificultad.
+     * Si el usuario cancela, usa {@link Dificultad#NORMAL}.
      *
-     * @return la dificultad elegida por el jugador
+     * @return la dificultad elegida
      */
     private static Dificultad elegirDificultad() {
         Dificultad[] opciones = Dificultad.values();

@@ -8,20 +8,20 @@ import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 
 /**
- * Genera el "arte" de las cartas: pequenos stickman dibujados por codigo, con una pose distinta
- * segun el tipo de carta, y un icono especial para los lideres.
+ * Genera el arte simple de las cartas y del lider.
+ * Dibuja figuras tipo stickman por codigo.
+ * Cada tipo de carta usa una pose distinta.
  */
 public final class CardArt {
     private CardArt() {
     }
 
     /**
-     * Genera el icono en forma de stickman para una carta de batalla, con una pose distinta
-     * segun su tipo (robar, guardia, doble golpe o basica).
+     * Genera el icono de una carta con una pose segun su tipo.
      *
-     * @param type  tipo de carta (determina la pose dibujada)
-     * @param color color del stickman (para diferenciar cartas del jugador y de la CPU)
-     * @return icono generado, listo para usarse en un {@link javax.swing.JButton} o {@link javax.swing.JLabel}
+     * @param type  tipo de carta
+     * @param color color del stickman
+     * @return icono listo para usar en botones o etiquetas
      */
     public static ImageIcon stickmanIcon(CardType type, Color color) {
         int w = 80, h = 90;
@@ -29,7 +29,7 @@ public final class CardArt {
         Graphics2D g = img.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        // Fondo suave para que se note la carta
+        // Fondo suave para resaltar la carta.
         g.setColor(new Color(255, 255, 255, 160));
         g.fillRoundRect(2, 2, w - 4, h - 4, 12, 12);
 
@@ -48,14 +48,14 @@ public final class CardArt {
 
         switch (type) {
             case DRAW:
-                // Estira el brazo hacia arriba, como robando una carta.
+                // Brazo arriba, como si robara.
                 g.drawLine(cx, neckY + 5, cx + 18, neckY - 12);
                 g.drawLine(cx, neckY + 5, cx - 14, neckY + 16);
                 g.drawLine(cx, hipY, cx - 10, groundY);
                 g.drawLine(cx, hipY, cx + 10, groundY);
                 break;
             case GUARD:
-                // Brazos cruzados al frente y un pequeno escudo.
+                // Brazos al frente y un escudo.
                 g.drawLine(cx, neckY + 5, cx + 15, neckY + 4);
                 g.drawLine(cx, neckY + 5, cx - 15, neckY + 4);
                 g.drawRect(cx - 7, neckY + 8, 14, 16);
@@ -63,7 +63,7 @@ public final class CardArt {
                 g.drawLine(cx, hipY, cx + 10, groundY);
                 break;
             case DOUBLE_STRIKE:
-                // Dos golpes: ambos brazos lanzados hacia adelante.
+                // Ambos brazos al frente.
                 g.drawLine(cx, neckY + 4, cx + 22, neckY - 2);
                 g.drawLine(cx, neckY + 10, cx + 22, neckY + 16);
                 g.drawLine(cx, hipY, cx - 10, groundY);
@@ -80,11 +80,11 @@ public final class CardArt {
     }
 
     /**
-     * Icono del lider: stickman mas grande, con capa; si esta transformado, se agrega un aura dorada.
+     * Genera el icono del lider.
      *
      * @param color        color base del lider
-     * @param transformado true si el lider ya se transformo (vida <= 4), para dibujar el aura dorada
-     * @return icono generado del lider
+     * @param transformado true si debe llevar aura dorada
+     * @return icono del lider
      */
     public static ImageIcon leaderIcon(Color color, boolean transformado) {
         int w = 90, h = 100;
@@ -113,10 +113,10 @@ public final class CardArt {
 
         g.drawOval(cx - headR, headY, headR * 2, headR * 2);
         g.drawLine(cx, neckY, cx, hipY);
-        // Capa
+        // Capa.
         g.drawLine(cx - 6, neckY + 3, cx - 16, hipY + 6);
         g.drawLine(cx + 6, neckY + 3, cx + 16, hipY + 6);
-        // Pose heroica: puños en alto
+        // Pose heroica.
         g.drawLine(cx, neckY + 6, cx - 18, neckY - 10);
         g.drawLine(cx, neckY + 6, cx + 18, neckY - 10);
         g.drawLine(cx, hipY, cx - 12, groundY);

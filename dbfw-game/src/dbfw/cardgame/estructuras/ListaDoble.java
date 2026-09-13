@@ -4,15 +4,9 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 /**
- * Implementacion propia de una Lista Doblemente Enlazada (nodos con referencia al anterior y al
- * siguiente) sin usar {@code java.util.LinkedList}.
- * <p>
- * Se usa para el <b>historial de jugadas</b> de la partida: cada evento relevante (jugar una
- * carta, atacar, bloquear, usar combo, etc.) se agrega al final con },
- * y un cursor interno permite navegar el historial hacia atras y hacia adelante con
- * algo que un simple registro de texto
- * del log de la partida) no puede ofrecer, porque solo se puede leer
- * de corrido y no conserva un punto de lectura navegable.
+ * Lista doble propia para el historial de jugadas de la partida.
+ * Cada evento queda enlazado con el anterior y el siguiente para poder avanzar o retroceder por el registro.
+ * Se hizo con nodos propios en vez de {@code List} o arreglos para insertar al final en O(1) y navegar sin desplazar elementos.
  *
  * @param <T> tipo de elemento que almacena la lista (en este juego, mensajes de texto)
  */
@@ -39,8 +33,7 @@ public class ListaDoble<T> implements Iterable<T> {
     private Nodo<T> cursor;
 
     /**
-     * Agrega un elemento al final de la lista (operacion O(1) gracias al puntero de cola) y
-     * mueve el cursor de navegacion a ese nuevo ultimo elemento.
+     * Agrega un elemento al final de la lista y mueve el cursor a ese nuevo ultimo elemento.
      */
     public void agregarFinal(T valor) {
         Nodo<T> nuevo = new Nodo<>(valor);

@@ -1,33 +1,30 @@
 package dbfw.cardgame;
 
 /**
- * Carta de accion (ya no un "personaje") del modo hibrido Undertale/Slay the Spire.
- * <p>
- * Una carta se juega desde la mano pagando su costo de energia y su efecto se resuelve de
- * inmediato: o bien ataca directamente la vida del rival ({@link #getDanoDirecto()}, sin
- * comparar contra ninguna otra carta) o bien roba una carta del mazo ({@link #drawsOnPlay()}).
- * Tambien puede "quemarse" como carta de combo para sumar daño extra a un ataque (ver
- * {@link #getComboPower()}), descartandose permanentemente en el proceso.
+ * Carta de accion de un solo uso.
+ * No representa un personaje: al jugarse ataca directo o activa un efecto inmediato.
+ * Su poder de combo es inverso a lo fuerte de su efecto, y su prioridad sirve para la
+ * {@code ColaPrioridad} de efectos.
  */
 public class GameCard {
     /** Nombre visible de la carta (se usa en botones y en el registro de la partida). */
     private final String name;
-    /** Poder base de la carta, antes de aplicar efectos de tipo. */
+    /** Poder base de la carta. */
     private final int basePower;
-    /** Costo en energia para jugar esta carta desde la mano. */
+    /** Costo de energia para jugarla. */
     private final int cost;
-    /** Tipo de carta, que determina su efecto especial (ver {@link CardType}). */
+    /** Tipo de carta. */
     private final CardType type;
-    /** Puntos de daño extra que aporta esta carta si se usa como combo (se calcula una vez, segun el tipo). */
+    /** Daño extra que aporta si se usa como combo. */
     private final int comboPower;
 
     /**
-     * Crea una carta de batalla.
+     * Crea una carta de accion.
      *
      * @param name      nombre de la carta
-     * @param basePower poder base (sin bonos ni efectos de tipo)
-     * @param cost      costo de energia para jugarla desde la mano
-     * @param type      tipo de carta y su efecto asociado
+     * @param basePower poder base
+     * @param cost      costo de energia
+     * @param type      tipo de carta
      */
     public GameCard(String name, int basePower, int cost, CardType type) {
         this.name = name;
@@ -38,20 +35,18 @@ public class GameCard {
     }
 
     /**
-     * Calcula el poder de combo (en puntos de daño directo) segun el tipo de carta.
-     * Entre mas fuerte el efecto de la carta, menos daño de combo aporta al quemarse:
-     * las cartas sin efecto (BASIC) son las mejores para combo, y las de efecto mas fuerte
-     * (DOUBLE_STRIKE) son las que menos aportan.
+     * Calcula el poder de combo segun el tipo.
+     * Entre mas fuerte es el efecto, menos combo aporta.
      *
      * @param type tipo de carta
-     * @return puntos de daño de combo que aporta esta carta al quemarse
+     * @return daño extra al usarla como combo
      */
     private static int calcularComboPower(CardType type) {
         switch (type) {
-            case BASIC: return 3;          // sin efecto: el mayor aporte de combo
-            case DRAW: return 2;           // efecto leve (robar)
-            case GUARD: return 1;          // efecto medio (ataque fuerte)
-            case DOUBLE_STRIKE: return 1;  // efecto fuerte (doble golpe): el menor aporte de combo
+            case BASIC: return 3;          // sin efecto, mejor combo
+            case DRAW: return 2;           // efecto leve
+            case GUARD: return 1;          // efecto medio
+            case DOUBLE_STRIKE: return 1;  // efecto fuerte
             default: return 0;
         }
     }
@@ -63,13 +58,10 @@ public class GameCard {
 
 
     /**
-     * Prioridad de resolucion del efecto de esta carta, usada por la Cola de Prioridad propia
-     * ({@code ColaPrioridad}) para decidir en que orden se resuelven los efectos de las cartas
-     * jugadas en un mismo turno: cuanto mas fuerte la habilidad especial, mayor la prioridad, y
-     * por lo tanto se resuelve antes, sin importar el orden en que se jugaron las cartas.
+     * Devuelve la prioridad del efecto de la carta.
+     * Entre mas fuerte es la habilidad, antes se resuelve.
      *
-     * @return 3 para Golpe Doble (habilidad fuerte), 2 para Ataque Fuerte (media), 1 para
-     *         Jalar Carta (leve) y 0 para las cartas basicas (sin habilidad especial).
+     * @return prioridad del efecto
      */
     public int getPrioridadEfecto() {
         switch (type) {
@@ -81,32 +73,25 @@ public class GameCard {
     }
 
     /**
-     * Daño directo que esta carta inflige a la vida del rival al jugarla, sin comparar contra
-     * ninguna otra carta (a diferencia del antiguo sistema de bloqueo por poder): entre mayor
-     * el poder base de la accion, mas vida quita. Las cartas de tipo {@link CardType#DRAW} no
-     * atacan (devuelven 0; en vez de eso roban una carta, ver {@link #drawsOnPlay()}), y las de
-     * tipo {@link CardType#DOUBLE_STRIKE} golpean dos veces por este mismo monto (ver
-     * {@link #isDoubleStrike()}), por lo que son las que mas vida total quitan en un solo turno.
+     * Daño directo que hace la carta al jugarse.
+     * Las cartas {@link CardType#DRAW} no dañan y las {@link CardType#DOUBLE_STRIKE} golpean dos veces.
      *
-     * @return puntos de vida que pierde el rival por cada golpe de esta carta
+     * @return daño por golpe
      */
     public int getDanoDirecto() {
         switch (type) {
-            case DOUBLE_STRIKE: return 2; // golpea 2 veces -> 4 de daño total
+            case DOUBLE_STRIKE: return 2; // golpea 2 veces
             case GUARD: return 2;
-            case DRAW: return 0;          // no ataca: roba una carta
-            default: return 1;            // BASIC
+            case DRAW: return 0;          // roba una carta
+            default: return 1;            // basica
         }
     }
 
     /**
-     * Crea una copia nueva e independiente de esta carta (misma estadisticas base, mismo tipo)
-     * con un numero agregado al nombre. Se usa junto con {@link dbfw.cardgame.CatalogoCartas}
-     * para construir varias copias numeradas de una misma familia de cartas (ej. "Jalar Carta 1",
-     * "Jalar Carta 2", ...) a partir de una sola plantilla indexada por nombre en la tabla hash.
+     * Crea una copia de la carta con un numero agregado al nombre.
      *
-     * @param numero numero a agregar al nombre de la copia
-     * @return una nueva carta independiente con el mismo nombre base, poder, costo y tipo
+     * @param numero numero para el nombre
+     * @return una nueva carta con los mismos datos base
      */
     public GameCard crearCopiaNumerada(int numero) {
         return new GameCard(name + " " + numero, basePower, cost, type);
@@ -133,17 +118,17 @@ public class GameCard {
         return type;
     }
 
-    /** @return el poder base de la carta (solo para mostrarlo en la interfaz; el daño real se calcula con {@link #getDanoDirecto()}). */
+    /** @return el poder base de la carta para mostrar en la interfaz. */
     public int getEffectivePower(boolean defendiendo) {
         return basePower;
     }
 
-    /** @return true si esta carta tiene el efecto Double Strike (2 de daño en vez de 1 si conecta). */
+    /** @return true si esta carta golpea dos veces. */
     public boolean isDoubleStrike() {
         return type == CardType.DOUBLE_STRIKE;
     }
 
-    /** @return true si esta carta roba 1 carta del mazo automaticamente al ser jugada. */
+    /** @return true si esta carta roba 1 carta al jugarse. */
     public boolean drawsOnPlay() {
         return type == CardType.DRAW;
     }

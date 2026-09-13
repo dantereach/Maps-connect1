@@ -8,15 +8,13 @@ import javax.swing.JComponent;
 import javax.swing.JLabel;
 
 /**
- * Paleta de colores y utilidades de estilo compartidas por toda la interfaz del juego,
- * inspiradas en las pantallas de combate de Undertale: fondos negros con acentos verdes tipo
- * terminal, en vez de la paleta calida del tablero original. Se usa tanto en {@link CardBattleFrame}
- * como en {@link dbfw.cardgame.undertale.PanelEsquive} para que ambas pantallas compartan el
- * mismo estilo visual.
+ * Colores y estilos compartidos de la interfaz.
+ * Mantiene la paleta negro/verde inspirada en Undertale.
+ * Se usa en las pantallas principales del juego.
  */
 public final class TemaUndertale {
     private TemaUndertale() {
-        // Clase de solo constantes/metodos estaticos: no se instancia.
+        // Clase utilitaria: no se instancia.
     }
 
     /** Negro de fondo, como las pantallas de combate de Undertale. */
@@ -27,12 +25,12 @@ public final class TemaUndertale {
     public static final Color VERDE_OSCURO = new Color(15, 90, 40);
     /** Verde brillante, casi blanco (para resaltar el elemento de menu seleccionado). */
     public static final Color VERDE_BRILLANTE = new Color(190, 255, 200);
-    /** Blanco-hueso: color de los proyectiles ("huesos"), como en las peleas de Undertale. */
+    /** Blanco hueso para los proyectiles. */
     public static final Color HUESO = new Color(235, 235, 220);
-    /** Rojo de alerta, para telegrafiar ataques peligrosos o la vida critica. */
+    /** Rojo de alerta. */
     public static final Color ROJO_ALERTA = new Color(220, 50, 50);
 
-    /** Fuente monoespaciada para los botones de menu, con aire de terminal retro. */
+    /** Fuente de menu con estilo de terminal. */
     public static final Font FUENTE_MENU = new Font("Consolas", Font.BOLD, 14);
 
     /** Aplica el estilo negro/verde a un boton (fondo negro, texto y borde verde). */

@@ -3,15 +3,10 @@ package dbfw.cardgame.arbol;
 import dbfw.cardgame.estructuras.ListaSimple;
 
 /**
- * Nodo de un Arbol N-ario propio: guarda un valor y la lista de sus nodos hijos directos.
- * <p>
- * Los hijos se guardan en una {@link ListaSimple} propia (ya construida para el area de
- * batalla) en vez de un arreglo o de {@code java.util.List}, para mantener el arbol construido
- * enteramente con estructuras propias, sin depender de las colecciones de la biblioteca
- * estandar.
+ * Nodo de un arbol n-ario propio.
+ * Guarda un valor y sus hijos directos en una {@link ListaSimple} del proyecto.
  *
- * @param <T> tipo de valor que guarda cada nodo (en este juego, una {@code GameCard} que
- *            representa un nivel de evolucion)
+ * @param <T> tipo de valor que guarda cada nodo
  */
 public class NodoArbol<T> {
     /** Valor guardado en este nodo (por ejemplo, la carta de este nivel de evolucion). */
@@ -34,9 +29,8 @@ public class NodoArbol<T> {
     }
 
     /**
-     * Agrega un nuevo nivel (nodo hijo) directamente debajo de este nodo y lo devuelve, para
-     * poder seguir anidando mas niveles a partir de el (por ejemplo, agregar la version
-     * "legendaria" como hijo de la "mejorada").
+     * Agrega un nodo hijo debajo de este nodo y lo devuelve.
+     * Sirve para seguir creando mas niveles a partir de ese hijo.
      *
      * @param valorHijo valor del nuevo nodo hijo
      * @return el nodo hijo recien creado y agregado

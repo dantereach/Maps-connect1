@@ -9,15 +9,9 @@ import java.awt.Polygon;
 import java.awt.RenderingHints;
 
 /**
- * Panel decorativo que dibuja el campo de batalla con una perspectiva de "tablero panoramico"
- * (un piso de cuadricula visto en angulo, mas angosto en el horizonte y mas ancho hacia el
- * jugador), con la paleta negro/verde tipo terminal de las pantallas de combate de Undertale
- * (ver {@link dbfw.cardgame.TemaUndertale}), en vez de la paleta calida original.
- * <p>
- * Es puramente visual: no contiene logica de juego. Los componentes reales (informacion de
- * cada jugador, lideres y cartas) se agregan encima como hijos normales de Swing con fondo
- * transparente ({@code setOpaque(false)}), de modo que el piso pintado aqui se vea detras
- * de ellos, dando la sensacion de una vista amplia del campo en vez de una simple lista.
+ * Panel decorativo del campo de batalla.
+ * Dibuja un piso en perspectiva con paleta negro/verde estilo Undertale.
+ * Solo pinta el fondo; la logica y los controles van encima.
  */
 public class BoardPanel extends JPanel {
 
@@ -33,13 +27,12 @@ public class BoardPanel extends JPanel {
         int w = getWidth();
         int h = getHeight();
 
-        // Fondo negro solido, como las pantallas de combate de Undertale.
+        // Fondo negro base.
         g2.setColor(TemaUndertale.FONDO);
         g2.fillRect(0, 0, w, h);
 
-        // Piso en perspectiva: trapecio angosto arriba (horizonte, lado de la CPU) y ancho
-        // abajo (frente, lado del jugador), lo que da la ilusion de profundidad/camara angulada.
-        // Se dibuja solo con lineas verdes sobre negro, como una cuadricula de terminal.
+        // Piso en perspectiva para simular profundidad.
+        // Es una cuadricula verde sobre negro.
         int horizonteY = (int) (h * 0.16);
         int pisoTopeY = horizonteY;
         int pisoBaseY = h;
@@ -58,8 +51,7 @@ public class BoardPanel extends JPanel {
         g2.setStroke(new BasicStroke(2f));
         g2.drawPolygon(piso);
 
-        // Lineas de cuadricula horizontales, interpoladas con un exponente para que se vean mas
-        // juntas cerca del horizonte y mas separadas cerca del jugador (efecto de profundidad).
+        // Lineas horizontales: mas juntas al fondo y mas separadas al frente.
         int filas = 8;
         for (int i = 1; i < filas; i++) {
             double t = Math.pow((double) i / filas, 1.6);
@@ -69,7 +61,7 @@ public class BoardPanel extends JPanel {
             g2.setColor(new Color(40, 140, 70, 130));
             g2.drawLine(xIzq, y, xDer, y);
         }
-        // Lineas de cuadricula verticales (columnas), convergiendo hacia el horizonte.
+        // Lineas verticales que convergen hacia el horizonte.
         int columnas = 10;
         for (int i = 1; i < columnas; i++) {
             double t = (double) i / columnas;
@@ -79,7 +71,7 @@ public class BoardPanel extends JPanel {
             g2.drawLine(xTope, pisoTopeY, xBase, pisoBaseY);
         }
 
-        // Decoracion lateral simple (rocas), en un verde apagado para no romper la paleta.
+        // Rocas laterales para decorar.
         g2.setColor(new Color(15, 60, 30));
         g2.fillOval(-50, (int) (h * 0.12), 150, 110);
         g2.fillOval(w - 100, (int) (h * 0.08), 150, 120);
@@ -87,4 +79,3 @@ public class BoardPanel extends JPanel {
         g2.dispose();
     }
 }
-
