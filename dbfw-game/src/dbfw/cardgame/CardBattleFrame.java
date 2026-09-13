@@ -112,7 +112,7 @@ public class CardBattleFrame extends JFrame {
 
         human = new CardPlayer("Tu", LeaderCard.crearLiderAzul());
         // La CPU tiene el doble de vida del jugador para compensar su daño base mas bajo.
-        cpu = new CardPlayer("CPU", LeaderCard.crearLiderCpu(), CardPlayer.VIDA_INICIAL * 2);
+        cpu = new CardPlayer("CPU", LeaderCard.crearLiderCpu());
         human.buildDeck();
         cpu.buildDeck(dificultad.getConteoPorFamilia());
         human.drawInitialHand(5);
