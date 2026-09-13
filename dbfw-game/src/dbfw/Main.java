@@ -5,6 +5,7 @@ import dbfw.cardgame.Dificultad;
 
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
 
 /**
  * Punto de entrada del juego.
@@ -18,6 +19,15 @@ public class Main {
      * @param args argumentos de linea de comandos; ver la documentacion de la clase para las opciones.
      */
     public static void main(String[] args) {
+        // Se fuerza el look and feel "Metal" (multiplataforma) para que los colores negro/verde
+        // del tema estilo Undertale (ver TemaUndertale) se pinten igual en botones y paneles sin
+        // importar el sistema operativo; algunos look and feel nativos ignoran el color de fondo
+        // personalizado de los JButton.
+        try {
+            UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
+        } catch (Exception ignored) {
+            // Si falla, simplemente se usa el look and feel por defecto del sistema.
+        }
         if (args.length > 0 && args[0].equalsIgnoreCase("texto")) {
 
         } else {

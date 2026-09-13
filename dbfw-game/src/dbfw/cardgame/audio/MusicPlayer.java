@@ -31,6 +31,8 @@ public final class MusicPlayer {
 
     private Clip clip;
     private boolean silenciado = false;
+    /** Volumen relativo actual (0.0 = casi silencio, 1.0 = volumen original del archivo). */
+    private float volumen = 1.0f;
 
     /**
      * Intenta cargar y reproducir en bucle infinito el tema del juego desde
@@ -71,7 +73,7 @@ public final class MusicPlayer {
             try (AudioInputStream flujoPcm = AudioSystem.getAudioInputStream(formatoPcm, flujoOriginal)) {
                 clip = AudioSystem.getClip();
                 clip.open(flujoPcm);
-                aplicarSilencio();
+                aplicarGanancia();
                 clip.loop(Clip.LOOP_CONTINUOUSLY);
                 return true;
             }
@@ -97,7 +99,7 @@ public final class MusicPlayer {
      */
     public boolean alternarSilencio() {
         silenciado = !silenciado;
-        aplicarSilencio();
+        aplicarGanancia();
         return silenciado;
     }
 
@@ -105,11 +107,34 @@ public final class MusicPlayer {
         return silenciado;
     }
 
-    private void aplicarSilencio() {
+    /**
+     * Ajusta el volumen relativo de la musica (usado por el dialogo de Configuracion).
+     *
+     * @param volumen valor entre 0.0 (casi silencio) y 1.0 (volumen original del archivo)
+     */
+    public void setVolumen(float volumen) {
+        this.volumen = Math.max(0f, Math.min(1f, volumen));
+        aplicarGanancia();
+    }
+
+    /** @return el volumen relativo actual, entre 0.0 y 1.0. */
+    public float getVolumen() {
+        return volumen;
+    }
+
+    /** Recalcula y aplica la ganancia real del clip segun el silencio y el volumen elegidos. */
+    private void aplicarGanancia() {
         if (clip == null || !clip.isControlSupported(FloatControl.Type.MASTER_GAIN)) {
             return;
         }
         FloatControl control = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
-        control.setValue(silenciado ? control.getMinimum() : 0f);
+        if (silenciado || volumen <= 0f) {
+            control.setValue(control.getMinimum());
+        } else {
+            // Interpola en decibeles entre el minimo (silencio total) y 0dB (volumen original
+            // del archivo), segun la fraccion de volumen elegida (0..1).
+            float minimo = control.getMinimum();
+            control.setValue(minimo + (0f - minimo) * volumen);
+        }
     }
 }

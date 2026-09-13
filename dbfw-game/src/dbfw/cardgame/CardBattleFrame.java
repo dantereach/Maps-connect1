@@ -12,6 +12,7 @@ import dbfw.cardgame.undertale.PanelEsquive;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -19,14 +20,17 @@ import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JSlider;
 import javax.swing.JTextArea;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
+import javax.swing.border.TitledBorder;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.GridLayout;
 import java.util.List;
 import java.util.Random;
 
@@ -37,30 +41,47 @@ import java.util.Random;
  * <p>
  * En el turno del jugador humano el gameplay es estilo Slay the Spire: las cartas de la mano
  * son las acciones disponibles y, al jugarlas, resuelven su efecto de inmediato (daño directo
- * al rival o robar una carta), sin comparar poder contra ninguna otra carta. En el turno de la
- * CPU, sus cartas se resuelven igual, pero el ataque de su Lider (una vez por turno) se
- * dramatiza como una fase de esquive en tiempo real al estilo Undertale ({@link PanelEsquive}):
+ * al rival o robar una carta), sin comparar poder contra ninguna otra carta. La mano ya no se
+ * muestra completa de un jirón: el menu de acciones esta dividido en dos categorias al estilo
+ * de los menus de combate de Undertale ({@link CategoriaAccion}), "Ataque" (cartas que dañan al
+ * rival) e "Item" (cartas de utilidad, como robar del mazo), y solo se ve una a la vez. En el
+ * turno de la CPU, sus cartas se resuelven igual, pero el ataque de su Lider (una vez por turno)
+ * se dramatiza como una fase de esquive en tiempo real al estilo Undertale ({@link PanelEsquive}):
  * el jugador mueve un corazon con las flechas del teclado para esquivar una lluvia de balas.
  * <p>
  * Esta clase concentra toda la logica de la partida entre el jugador humano y la CPU:
  * <ul>
- *   <li>Construccion de la interfaz (tablero panoramico en perspectiva, lideres, historial de
- *       acciones jugadas, mano y letrero de eventos).</li>
+ *   <li>Construccion de la interfaz (tablero panoramico en perspectiva con el tema negro/verde
+ *       de Undertale, lideres, historial de acciones jugadas, menu Ataque/Item y letrero de
+ *       eventos).</li>
  *   <li>Turnos: inicio de turno, jugar cartas de la mano, atacar con el lider, usar la
  *       habilidad de potenciar y terminar el turno (lo que dispara el turno automatico de la
  *       CPU, incluyendo la fase de esquive).</li>
  *   <li>Resolucion de acciones ({@link #resolverEfectosPendientes}): aplica daño directo o
  *       robo de cartas en orden de prioridad, con combo ofensivo opcional.</li>
  *   <li>Inteligencia artificial simple de la CPU: que carta jugar y cuando usar combo.</li>
+ *   <li>Configuracion en tiempo real (volumen/silencio de la musica) mediante un dialogo
+ *       accesible desde el boton "Configuracion" (ver {@link #mostrarConfiguracion}).</li>
  * </ul>
  */
 public class CardBattleFrame extends JFrame {
+    /**
+     * Categoria de accion mostrada en el menu de la mano, al estilo de los menus de combate de
+     * Undertale (FIGHT/ITEM): "Ataque" agrupa las cartas que dañan directamente al rival, e
+     * "Item" agrupa las cartas de utilidad (por ahora, robar del mazo). Ver {@link GameCard#drawsOnPlay()}.
+     */
+    private enum CategoriaAccion { ATAQUE, ITEM }
+
     private final CardPlayer human;
     private final CardPlayer cpu;
     private final Random random = new Random();
     private boolean gameOver = false;
     /** Dificultad elegida antes de iniciar la partida (ver {@code dbfw.Main}); afecta el mazo de la CPU, su IA de combo y la fase de esquive. */
     private final Dificultad dificultad;
+    /** Categoria de carta que se muestra actualmente en la mano (ver {@link CategoriaAccion}). */
+    private CategoriaAccion categoriaActual = CategoriaAccion.ATAQUE;
+    /** true si se encontro y se pudo reproducir el archivo de musica (ver {@link #mostrarConfiguracion}). */
+    private boolean musicaDisponible;
 
     /**
      * Ciclo de turnos entre el jugador humano y la CPU: Lista Circular propia (ver
@@ -86,11 +107,18 @@ public class CardBattleFrame extends JFrame {
      * sigue disponible y navegable mediante {@link #mostrarHistorial()}.
      */
     private final JLabel eventBanner = new JLabel(" ", SwingConstants.CENTER);
+    /** Boton de menu "Ataque": muestra en la mano solo las cartas que dañan directamente al rival. */
+    private final JButton btnMenuAtaque = new JButton("ATAQUE");
+    /** Boton de menu "Item": muestra en la mano solo las cartas de utilidad (ej. robar del mazo). */
+    private final JButton btnMenuItem = new JButton("ITEM");
     private final JButton btnBoost = new JButton("Potenciar tu proximo ataque (+1 dano, 1 energia)");
     private final JButton btnEndTurn = new JButton("Terminar Turno");
     private final JButton btnHistorial = new JButton("Ver Historial");
     private final JButton btnArbol = new JButton("Ver Arbol de Evolucion");
-    private final JButton btnMusica = new JButton("Silenciar Musica");
+    private final JButton btnConfiguracion = new JButton("Configuracion");
+    /** Borde con titulo del panel de mano, que cambia entre "Ataque" e "Item" segun {@link #categoriaActual}. */
+    private final TitledBorder bordeMano = BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(TemaUndertale.VERDE_OSCURO, 2), "Tu mano - Ataque");
     /**
      * Reproductor de la musica de fondo del juego (ver {@link MusicPlayer}). Cada jugador debe
      * colocar su propio archivo en {@code music/theme.mp3} (excluido de git); si no existe,
@@ -129,22 +157,28 @@ public class CardBattleFrame extends JFrame {
         board.setLayout(new BorderLayout());
 
         eventBanner.setOpaque(true);
-        eventBanner.setBackground(new Color(20, 20, 25, 210));
-        eventBanner.setForeground(Color.WHITE);
-        eventBanner.setFont(new Font("SansSerif", Font.BOLD, 14));
-        eventBanner.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
+        eventBanner.setBackground(new Color(0, 0, 0, 210));
+        eventBanner.setForeground(TemaUndertale.VERDE_BRILLANTE);
+        eventBanner.setFont(new Font("Consolas", Font.BOLD, 14));
+        eventBanner.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(TemaUndertale.VERDE_OSCURO, 2),
+                BorderFactory.createEmptyBorder(6, 10, 6, 10)));
 
         infoCpu.setOpaque(true);
-        infoCpu.setBackground(new Color(30, 15, 15, 200));
-        infoCpu.setForeground(Color.WHITE);
-        infoCpu.setFont(new Font("SansSerif", Font.BOLD, 14));
-        infoCpu.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
+        infoCpu.setBackground(new Color(30, 0, 0, 200));
+        infoCpu.setForeground(TemaUndertale.VERDE_BRILLANTE);
+        infoCpu.setFont(new Font("Consolas", Font.BOLD, 14));
+        infoCpu.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(TemaUndertale.VERDE_OSCURO, 1),
+                BorderFactory.createEmptyBorder(4, 10, 4, 10)));
 
         infoHuman.setOpaque(true);
-        infoHuman.setBackground(new Color(10, 15, 35, 200));
-        infoHuman.setForeground(Color.WHITE);
-        infoHuman.setFont(new Font("SansSerif", Font.BOLD, 14));
-        infoHuman.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
+        infoHuman.setBackground(new Color(0, 0, 30, 200));
+        infoHuman.setForeground(TemaUndertale.VERDE_BRILLANTE);
+        infoHuman.setFont(new Font("Consolas", Font.BOLD, 14));
+        infoHuman.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(TemaUndertale.VERDE_OSCURO, 1),
+                BorderFactory.createEmptyBorder(4, 10, 4, 10)));
 
         cpuBattlePanel.setOpaque(false);
         humanBattlePanel.setOpaque(false);
@@ -179,41 +213,51 @@ public class CardBattleFrame extends JFrame {
 
         add(board, BorderLayout.CENTER);
 
-        // Debajo del tablero: la mano del jugador (como cartas "en la mesa" frente a la camara)
-        // y los controles de turno.
+        // Debajo del tablero: el menu de acciones (Ataque/Item, estilo Undertale) con la mano
+        // filtrada por categoria, y los controles de turno. Todo con el tema negro/verde.
         JPanel sur = new JPanel(new BorderLayout());
-        sur.setBorder(BorderFactory.createTitledBorder("Tu mano"));
-        sur.add(handPanel, BorderLayout.NORTH);
+        TemaUndertale.fondoNegro(sur);
+        bordeMano.setTitleColor(TemaUndertale.VERDE);
+        bordeMano.setTitleFont(TemaUndertale.FUENTE_MENU);
+        sur.setBorder(bordeMano);
+
+        JPanel menuCategorias = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 4));
+        TemaUndertale.fondoNegro(menuCategorias);
+        TemaUndertale.estilizar(btnMenuAtaque);
+        TemaUndertale.estilizar(btnMenuItem);
+        btnMenuAtaque.addActionListener(e -> cambiarCategoria(CategoriaAccion.ATAQUE));
+        btnMenuItem.addActionListener(e -> cambiarCategoria(CategoriaAccion.ITEM));
+        menuCategorias.add(btnMenuAtaque);
+        menuCategorias.add(btnMenuItem);
+        sur.add(menuCategorias, BorderLayout.NORTH);
+        sur.add(handPanel, BorderLayout.CENTER);
 
         JPanel controlPanel = new JPanel(new FlowLayout());
+        TemaUndertale.fondoNegro(controlPanel);
         btnBoost.addActionListener(e -> onBoost());
         btnEndTurn.addActionListener(e -> onEndTurn());
         btnHistorial.addActionListener(e -> mostrarHistorial());
         btnArbol.addActionListener(e -> mostrarArbolEvolucion());
-        btnMusica.addActionListener(e -> onToggleMusica());
-        controlPanel.add(btnBoost);
-        controlPanel.add(btnEndTurn);
-        controlPanel.add(btnHistorial);
-        controlPanel.add(btnArbol);
-        controlPanel.add(btnMusica);
+        btnConfiguracion.addActionListener(e -> mostrarConfiguracion());
+        for (JButton boton : new JButton[]{btnBoost, btnEndTurn, btnHistorial, btnArbol, btnConfiguracion}) {
+            TemaUndertale.estilizar(boton);
+            controlPanel.add(boton);
+        }
         sur.add(controlPanel, BorderLayout.SOUTH);
 
         add(sur, BorderLayout.SOUTH);
+        getContentPane().setBackground(TemaUndertale.FONDO);
 
         appendLog("=== TECMILENIO HEROES - Modo Undertale/Slay the Spire ===");
         appendLog("Dificultad: " + dificultad + ".");
-        appendLog("Haz clic en una carta de tu mano para usarla como accion, o ataca con tu Lider.");
+        appendLog("Elige ATAQUE o ITEM para ver esas cartas de tu mano, o ataca con tu Lider.");
         refreshUI();
 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(950, 750);
         setLocationRelativeTo(null);
 
-        boolean sonando = musica.reproducirTema();
-        if (!sonando) {
-            btnMusica.setText("Musica no encontrada");
-            btnMusica.setEnabled(false);
-        }
+        musicaDisponible = musica.reproducirTema();
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosing(java.awt.event.WindowEvent e) {
@@ -222,10 +266,54 @@ public class CardBattleFrame extends JFrame {
         });
     }
 
-    /** Alterna el silencio de la musica de fondo con {@link #btnMusica}. */
-    private void onToggleMusica() {
-        boolean silenciado = musica.alternarSilencio();
-        btnMusica.setText(silenciado ? "Reanudar Musica" : "Silenciar Musica");
+    /** Cambia la categoria de accion mostrada en la mano (Ataque/Item) y refresca la interfaz. */
+    private void cambiarCategoria(CategoriaAccion categoria) {
+        this.categoriaActual = categoria;
+        refreshUI();
+    }
+
+    /**
+     * Abre el dialogo de Configuracion: por ahora permite ajustar el volumen de la musica de
+     * fondo y silenciarla, ademas de mostrar la dificultad elegida. Con el tema negro/verde de
+     * {@link TemaUndertale}, igual que el resto de la interfaz.
+     */
+    private void mostrarConfiguracion() {
+        JPanel panel = new JPanel(new GridLayout(0, 1, 4, 8));
+        TemaUndertale.fondoNegro(panel);
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 14, 10, 14));
+
+        JLabel infoDificultad = new JLabel("Dificultad de la partida: " + dificultad);
+        TemaUndertale.estilizar(infoDificultad);
+        panel.add(infoDificultad);
+
+        JLabel etiquetaVolumen = new JLabel("Volumen de la musica");
+        TemaUndertale.estilizar(etiquetaVolumen);
+        panel.add(etiquetaVolumen);
+
+        JSlider sliderVolumen = new JSlider(0, 100, Math.round(musica.getVolumen() * 100));
+        sliderVolumen.setMajorTickSpacing(25);
+        sliderVolumen.setPaintTicks(true);
+        sliderVolumen.setPaintLabels(true);
+        TemaUndertale.fondoNegro(sliderVolumen);
+        sliderVolumen.setForeground(TemaUndertale.VERDE);
+        sliderVolumen.setEnabled(musicaDisponible);
+        sliderVolumen.addChangeListener(e -> musica.setVolumen(sliderVolumen.getValue() / 100f));
+        panel.add(sliderVolumen);
+
+        JCheckBox casillaSilencio = new JCheckBox("Silenciar musica", musica.isSilenciado());
+        TemaUndertale.fondoNegro(casillaSilencio);
+        casillaSilencio.setForeground(TemaUndertale.VERDE);
+        casillaSilencio.setEnabled(musicaDisponible);
+        casillaSilencio.addActionListener(e -> musica.alternarSilencio());
+        panel.add(casillaSilencio);
+
+        if (!musicaDisponible) {
+            JLabel aviso = new JLabel("(No se encontro " + MusicPlayer.RUTA_TEMA_POR_DEFECTO + ")");
+            TemaUndertale.estilizar(aviso);
+            panel.add(aviso);
+        }
+
+        JOptionPane.showMessageDialog(this, panel, "Configuracion", JOptionPane.PLAIN_MESSAGE);
     }
 
     /**
@@ -383,10 +471,19 @@ public class CardBattleFrame extends JFrame {
 
         handPanel.removeAll();
         for (GameCard c : human.getHand()) {
-            handPanel.add(crearBotonCartaMano(c));
+            boolean esCartaItem = c.drawsOnPlay();
+            boolean coincideConCategoria = categoriaActual == CategoriaAccion.ITEM ? esCartaItem : !esCartaItem;
+            if (coincideConCategoria) {
+                handPanel.add(crearBotonCartaMano(c));
+            }
         }
         handPanel.revalidate();
         handPanel.repaint();
+
+        bordeMano.setTitle(categoriaActual == CategoriaAccion.ATAQUE ? "Tu mano - Ataque" : "Tu mano - Item");
+        TemaUndertale.marcarSeleccionado(btnMenuAtaque, categoriaActual == CategoriaAccion.ATAQUE);
+        TemaUndertale.marcarSeleccionado(btnMenuItem, categoriaActual == CategoriaAccion.ITEM);
+        handPanel.getParent().repaint();
 
         boolean puedePotenciar = human.getLeader().canBoost() && !human.getLeader().isBoostUsedThisTurn()
                 && human.getEnergyAvailable() >= human.getLeader().getBoostCost();
@@ -413,6 +510,7 @@ public class CardBattleFrame extends JFrame {
         b.setVerticalTextPosition(SwingConstants.BOTTOM);
         b.setBackground(l.isTransformed() ? new Color(255, 200, 120) : new Color(200, 220, 255));
         b.setOpaque(true);
+        b.setBorder(BorderFactory.createLineBorder(TemaUndertale.VERDE_OSCURO, 2));
         if (interactivoParaAtacar && p == human) {
             b.setEnabled(!gameOver && !l.isRested());
             b.addActionListener(e -> atacarConLider());
@@ -454,6 +552,7 @@ public class CardBattleFrame extends JFrame {
         b.setVerticalTextPosition(SwingConstants.BOTTOM);
         b.setBackground(colorTipo(c.getType()));
         b.setOpaque(true);
+        b.setBorder(BorderFactory.createLineBorder(TemaUndertale.VERDE_OSCURO, 2));
         b.setEnabled(!gameOver && human.getEnergyAvailable() >= c.getCost());
         b.addActionListener(e -> jugarCartaDeMano(c));
         return b;
@@ -468,6 +567,7 @@ public class CardBattleFrame extends JFrame {
         b.setVerticalTextPosition(SwingConstants.BOTTOM);
         b.setBackground(colorTipo(c.getType()));
         b.setOpaque(true);
+        b.setBorder(BorderFactory.createLineBorder(TemaUndertale.VERDE_OSCURO, 2));
         b.setEnabled(false);
         return b;
     }
