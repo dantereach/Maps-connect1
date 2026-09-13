@@ -42,7 +42,7 @@ import java.util.Random;
  * En el turno de la CPU, el ataque de su lider se resuelve como
  * una fase de esquive en tiempo real con {@link PanelEsquive}.
  * Esta clase maneja la interfaz, los turnos, la resolucion por
- * prioridad, la IA simple de la CPU y la configuracion de volumen y musica.
+ * prioridad, la Ia simple de la CPU y la configuracion de volumen y musica.
  */
 public class CardBattleFrame extends JFrame {
     /**
