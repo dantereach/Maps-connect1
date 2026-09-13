@@ -16,13 +16,7 @@ import javax.sound.sampled.UnsupportedAudioFileException;
  * Usa {@code javax.sound.sampled} (incluido en el JDK) apoyado en las librerias de terceros
  * {@code mp3spi}/{@code jlayer}/{@code tritonus-share} (carpeta {@code lib/} del proyecto), que
  * registran un {@code AudioFileReader} capaz de decodificar MP3 a PCM. Gracias a eso esta clase
- * no necesita saber nada de MP3: solo pide un {@link Clip} igual que si fuera un WAV.
- * <p>
- * El archivo de audio en si (por ejemplo la cancion tema del juego) <b>no</b> se distribuye con
- * el codigo fuente por derechos de autor: cada quien coloca su propio archivo en la carpeta
- * {@code music/} (ver {@link #RUTA_TEMA_POR_DEFECTO}), carpeta que esta excluida en
- * {@code .gitignore}. Si el archivo no existe, simplemente no hace
- * sonido y el juego sigue funcionando con normalidad.
+ * no necesita saber nada de MP3.
  */
 public final class MusicPlayer {
 
@@ -35,8 +29,8 @@ public final class MusicPlayer {
     private float volumen = 1.0f;
 
     /**
-     * Intenta cargar y reproducir en bucle infinito el tema del juego desde
-     * {@link #RUTA_TEMA_POR_DEFECTO}. Si el archivo no existe o no se puede decodificar, no
+     * Intenta cargar y reproducir en bucle infinito el tema del juego
+     * Si el archivo no existe o no se puede decodificar, no
      * lanza ninguna excepcion hacia la interfaz: solo deja de sonar musica.
      *
      * @return true si la musica empezo a reproducirse, false si no se encontro/pudo cargar

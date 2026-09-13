@@ -2,7 +2,7 @@ package dbfw.cardgame.undertale;
 
 /**
  * Una "bala" del mini-juego de esquive estilo Undertale: un proyectil que se mueve dentro de la
- * caja de esquive (ver {@link PanelEsquive}). Ademas del movimiento simple en linea recta,
+ * caja de esquive. Ademas del movimiento simple en linea recta,
  * admite dos variantes inspiradas en los patrones de la pelea de Undyne the Undying:
  * <ul>
  *   <li><b>Lanza</b>: se dibuja alargada y girada segun su direccion (como las paredes de
