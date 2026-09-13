@@ -9,8 +9,9 @@ import dbfw.cardgame.excepciones.PilaVaciaException;
 import java.util.Random;
 
 /**
- * Estado completo de un jugador (humano o CPU) dentro del modo "juego de cartas": su lider,
- * su mazo, su mano, su area de batalla (cartas ya jugadas), su vida y su energia disponible.
+ * Estado completo de un jugador (humano o CPU) dentro del modo hibrido Undertale/Slay the
+ * Spire: su lider, su mazo, su mano, el historial visual de acciones jugadas este turno, su
+ * vida y su energia disponible.
  * <p>
  * Esta clase solo modela el estado y las reglas basicas de cada jugador (robar, gastar energia,
  * recibir daño, iniciar turno); la logica de combate entre dos jugadores y la interfaz grafica
@@ -19,10 +20,11 @@ import java.util.Random;
  * El mazo, la mano y el area de batalla se implementan con estructuras de datos propias en vez
  * de {@code java.util.ArrayList}: el mazo es una {@link Pila} (se roba desde la cima, O(1)), la
  * mano es una {@link Cola} (las cartas entran por el final al robarse) y el area de batalla es
- * una {@link ListaSimple} (se recorre para mostrarla y se quita la carta destruida en combate).
- * Ademas, los efectos de las cartas jugadas se encolan en una {@link ColaPrioridad} propia para
- * resolverse en orden de prioridad, y el mazo se construye buscando cada familia de cartas por
- * nombre en el {@link CatalogoCartas} (tabla hash).
+ * una {@link ListaSimple} (aqui ya no representa "atacantes en la mesa": como las cartas son
+ * acciones de un solo uso, solo sirve de historial visual del turno y se vacia al empezar el
+ * siguiente). Ademas, los efectos de las cartas jugadas se encolan en una {@link ColaPrioridad}
+ * propia para resolverse en orden de prioridad, y el mazo se construye buscando cada familia de
+ * cartas por nombre en el {@link CatalogoCartas} (tabla hash).
  */
 public class CardPlayer {
     /** Nombre visible del jugador ("Tu" o "CPU"). */
@@ -49,6 +51,12 @@ public class CardPlayer {
     private int energyAvailable = 0;
     /** Energia maxima acumulada hasta ahora (sube 1 por turno hasta un tope de 10). */
     private int energyMax = 0;
+    /**
+     * Daño extra pendiente para el proximo ataque de este jugador, otorgado por la habilidad de
+     * potenciar del lider (ver {@link LeaderCard#getBoostAmount()}). Se consume por completo la
+     * primera vez que se aplica ({@link #consumirBonusAtaque()}).
+     */
+    private int bonusAtaquePendiente = 0;
 
     /**
      * Crea un jugador con su lider asociado. El mazo, mano y area de batalla empiezan vacios.
@@ -153,10 +161,10 @@ public class CardPlayer {
     public void buildDeck() {
         GameCard[] cartas = new GameCard[24];
         int idx = 0;
-        idx = agregarFamilia(cartas, idx, "Guerrero Basico", 6);
-        idx = agregarFamilia(cartas, idx, "Explorador", 6);
-        idx = agregarFamilia(cartas, idx, "Guardian", 6);
-        idx = agregarFamilia(cartas, idx, "Golpeador Doble", 6);
+        idx = agregarFamilia(cartas, idx, "Ataque Basico", 6);
+        idx = agregarFamilia(cartas, idx, "Jalar Carta", 6);
+        idx = agregarFamilia(cartas, idx, "Ataque Fuerte", 6);
+        idx = agregarFamilia(cartas, idx, "Golpe Doble", 6);
         barajar(cartas);
         for (GameCard carta : cartas) {
             deck.apilar(carta);
@@ -227,20 +235,43 @@ public class CardPlayer {
         }
     }
 
-    /** Inicio de turno: gana energia, se recupera toda la energia y se enderezan cartas y lider. */
+    /** Inicio de turno: gana energia, se recupera toda la energia y se descartan las acciones del turno anterior. */
     public void startTurn() {
         if (energyMax < 10) {
             energyMax++;
         }
         energyAvailable = energyMax;
-        for (GameCard c : battleArea) {
-            c.setRested(false);
-        }
+        // Las cartas jugadas son acciones de un solo uso (no "personajes" persistentes): el
+        // area de batalla ahora funciona solo como historial visual de lo jugado este turno,
+        // asi que se descarta al empezar el turno siguiente.
+        battleArea.vaciar();
         leader.setRested(false);
         leader.setBoostUsedThisTurn(false);
     }
 
-    /** Aplica dano de vida (1, o 2 si es Double Strike). Devuelve true si el jugador queda derrotado. */
+    /** @return el daño extra pendiente para el proximo ataque de este jugador (habilidad de potenciar). */
+    public int getBonusAtaquePendiente() {
+        return bonusAtaquePendiente;
+    }
+
+    /** Agrega daño extra pendiente para el proximo ataque de este jugador (habilidad de potenciar del lider). */
+    public void agregarBonusAtaque(int cantidad) {
+        this.bonusAtaquePendiente += cantidad;
+    }
+
+    /**
+     * Consume por completo el daño extra pendiente (lo devuelve y lo resetea a 0). Se usa al
+     * resolver el proximo ataque de este jugador, sea con una carta o con el lider.
+     *
+     * @return el daño extra que estaba pendiente (0 si no habia ninguno)
+     */
+    public int consumirBonusAtaque() {
+        int bono = bonusAtaquePendiente;
+        bonusAtaquePendiente = 0;
+        return bono;
+    }
+
+    /** Aplica daño directo de vida (segun el ataque). Devuelve true si el jugador queda derrotado. */
     public boolean takeDamage(int amount) {
         setLife(life - amount);
         return isDefeated();

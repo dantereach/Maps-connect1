@@ -80,6 +80,13 @@ public class ListaSimple<T> implements Iterable<T> {
         return cabeza == null;
     }
 
+    /** Quita todos los elementos de la lista, dejandola vacia (descarte de fin de turno). */
+    public void vaciar() {
+        cabeza = null;
+        cola = null;
+        tamano = 0;
+    }
+
     /** @return la cantidad de elementos en la lista. */
     public int tamano() {
         return tamano;

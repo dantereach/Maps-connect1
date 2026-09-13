@@ -8,9 +8,11 @@ import dbfw.cardgame.estructuras.ListaDoble;
 import dbfw.cardgame.estructuras.ListaSimple;
 import dbfw.cardgame.excepciones.ColaPrioridadVaciaException;
 import dbfw.cardgame.excepciones.MazoVacioException;
+import dbfw.cardgame.undertale.PanelEsquive;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
+import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -25,25 +27,31 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
 /**
- * Ventana principal del modo "juego de cartas", con reglas inspiradas en Dragon Ball Fusion World:
- * lideres con vida, poder en miles, transformacion del lider a baja vida, y cartas con
- * distintos efectos (robo, guardia, double strike).
+ * Ventana principal del modo hibrido "Undertale/Slay the Spire", con reglas inspiradas en
+ * Dragon Ball Fusion World: lideres con vida, transformacion del lider a baja vida, y cartas
+ * que ya no son "personajes" sino acciones de un solo uso (atacar, robar, golpe doble).
+ * <p>
+ * En el turno del jugador humano el gameplay es estilo Slay the Spire: las cartas de la mano
+ * son las acciones disponibles y, al jugarlas, resuelven su efecto de inmediato (daño directo
+ * al rival o robar una carta), sin comparar poder contra ninguna otra carta. En el turno de la
+ * CPU, sus cartas se resuelven igual, pero el ataque de su Lider (una vez por turno) se
+ * dramatiza como una fase de esquive en tiempo real al estilo Undertale ({@link PanelEsquive}):
+ * el jugador mueve un corazon con las flechas del teclado para esquivar una lluvia de balas.
  * <p>
  * Esta clase concentra toda la logica de la partida entre el jugador humano y la CPU:
  * <ul>
- *   <li>Construccion de la interfaz (tablero panoramico en perspectiva, lideres, area de
- *       batalla, mano y letrero de eventos).</li>
- *   <li>Turnos: inicio de turno, jugar cartas de la mano, atacar, usar la habilidad de potenciar
- *       del lider y terminar el turno (lo que dispara el turno automatico de la CPU).</li>
- *   <li>Resolucion de combate ({@link #resolverAtaque}): eleccion de bloqueador, cartas de combo
- *       ofensivas/defensivas, comparacion de poder y aplicacion de daño (incluyendo Double Strike).</li>
- *   <li>Inteligencia artificial simple de la CPU: que carta jugar, a que atacar, con que bloquear
- *       y cuando usar combo.</li>
+ *   <li>Construccion de la interfaz (tablero panoramico en perspectiva, lideres, historial de
+ *       acciones jugadas, mano y letrero de eventos).</li>
+ *   <li>Turnos: inicio de turno, jugar cartas de la mano, atacar con el lider, usar la
+ *       habilidad de potenciar y terminar el turno (lo que dispara el turno automatico de la
+ *       CPU, incluyendo la fase de esquive).</li>
+ *   <li>Resolucion de acciones ({@link #resolverEfectosPendientes}): aplica daño directo o
+ *       robo de cartas en orden de prioridad, con combo ofensivo opcional.</li>
+ *   <li>Inteligencia artificial simple de la CPU: que carta jugar y cuando usar combo.</li>
  * </ul>
  */
 public class CardBattleFrame extends JFrame {
@@ -76,7 +84,7 @@ public class CardBattleFrame extends JFrame {
      * sigue disponible y navegable mediante {@link #mostrarHistorial()}.
      */
     private final JLabel eventBanner = new JLabel(" ", SwingConstants.CENTER);
-    private final JButton btnBoost = new JButton("Potenciar carta (+5000, 1 energia)");
+    private final JButton btnBoost = new JButton("Potenciar tu proximo ataque (+1 dano, 1 energia)");
     private final JButton btnEndTurn = new JButton("Terminar Turno");
     private final JButton btnHistorial = new JButton("Ver Historial");
     private final JButton btnArbol = new JButton("Ver Arbol de Evolucion");
@@ -186,8 +194,8 @@ public class CardBattleFrame extends JFrame {
 
         add(sur, BorderLayout.SOUTH);
 
-        appendLog("=== TECMILENIO HEROES - Juego de Cartas ===");
-        appendLog("Haz clic en una carta de tu mano para jugarla, o en una carta/lider de tu area para atacar.");
+        appendLog("=== TECMILENIO HEROES - Modo Undertale/Slay the Spire ===");
+        appendLog("Haz clic en una carta de tu mano para usarla como accion, o ataca con tu Lider.");
         refreshUI();
 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -286,10 +294,19 @@ public class CardBattleFrame extends JFrame {
      * jugador jugo y aun no ha resuelto (ver {@code CardPlayer#getEfectosPendientes}, Cola de
      * Prioridad propia): las cartas con habilidad especial mas fuerte se procesan antes que las
      * demas, sin importar en que orden se jugaron dentro de la fase de juego.
+     * <p>
+     * Como las cartas son acciones de un solo uso (estilo Slay the Spire), cada una resuelve su
+     * efecto de inmediato: las de tipo {@code DRAW} hacen robar 1 carta, y el resto aplica su
+     * {@code getDanoDirecto()} (doblado si es Double Strike) como daño directo al oponente. El
+     * combo ofensivo ({@code comboExtra}) y el bono de "Potenciar" del jugador se suman solo al
+     * primer ataque que se resuelva en esta tanda.
      *
-     * @param jugador jugador cuyos efectos pendientes se van a resolver
+     * @param jugador    jugador cuyos efectos pendientes se van a resolver
+     * @param oponente   jugador que recibe el daño directo de las acciones de ataque
+     * @param comboExtra daño extra de combo a sumar al primer ataque resuelto (0 si no hubo combo)
      */
-    private void resolverEfectosPendientes(CardPlayer jugador) {
+    private void resolverEfectosPendientes(CardPlayer jugador, CardPlayer oponente, int comboExtra) {
+        boolean primerAtaque = true;
         while (!jugador.getEfectosPendientes().esVacia()) {
             GameCard carta;
             try {
@@ -306,6 +323,28 @@ public class CardBattleFrame extends JFrame {
                     declararDerrota(jugador);
                     return;
                 }
+                continue;
+            }
+
+            int golpes = carta.isDoubleStrike() ? 2 : 1;
+            int dano = carta.getDanoDirecto() * golpes;
+            if (primerAtaque) {
+                dano += comboExtra;
+            }
+            primerAtaque = false;
+
+            int bonoPotenciar = jugador.consumirBonusAtaque();
+            if (bonoPotenciar > 0) {
+                dano += bonoPotenciar;
+                appendLog(jugador.getName() + " usa su bono de Potenciar: +" + bonoPotenciar + " de daño.");
+            }
+
+            appendLog(carta.getName() + " golpea a " + oponente.getName() + " por " + dano + " de vida"
+                    + (carta.isDoubleStrike() ? " (Double Strike, 2 golpes)." : "."));
+            boolean derrotado = oponente.takeDamage(dano);
+            if (derrotado) {
+                declararDerrota(oponente);
+                return;
             }
         }
     }
@@ -343,21 +382,23 @@ public class CardBattleFrame extends JFrame {
         handPanel.repaint();
 
         boolean puedePotenciar = human.getLeader().canBoost() && !human.getLeader().isBoostUsedThisTurn()
-                && human.getEnergyAvailable() >= human.getLeader().getBoostCost() && !human.getBattleArea().esVacia();
+                && human.getEnergyAvailable() >= human.getLeader().getBoostCost();
         btnBoost.setEnabled(!gameOver && puedePotenciar);
         btnEndTurn.setEnabled(!gameOver);
     }
 
     /**
-     * Crea el boton que representa al lider de un jugador en su area de batalla.
+     * Crea el boton que representa al lider de un jugador. El area de batalla ya no muestra
+     * "atacantes en la mesa": ahora solo el Lider ataca en su turno, mostrando el daño directo
+     * que causaria ({@link LeaderCard#getDanoAtaque(int)}).
      * @param p                      jugador dueño del lider
      * @param interactivoParaAtacar true si el boton debe permitir atacar con este lider (solo el humano)
      */
     private JButton crearBotonLider(CardPlayer p, boolean interactivoParaAtacar) {
         LeaderCard l = p.getLeader();
-        int poder = l == human.getLeader() ? l.getAttackPower(human.getHand().tamano()) : l.getDefensePower();
-        String texto = "<html><center>" + l.getName() + "<br>PWR " + poder
-                + (l.isTransformed() ? "<br>(Transformado)" : "") + (l.isRested() ? "<br>[girado]" : "") + "</center></html>";
+        int dano = l.getDanoAtaque(p == human ? human.getHand().tamano() : 0);
+        String texto = "<html><center>" + l.getName() + "<br>Dano " + dano
+                + (l.isTransformed() ? "<br>(Transformado)" : "") + (l.isRested() ? "<br>[ya ataco]" : "") + "</center></html>";
         JButton b = new JButton(texto);
         Color colorBase = p == human ? Color.BLUE : Color.RED;
         b.setIcon(CardArt.leaderIcon(colorBase, l.isTransformed()));
@@ -374,13 +415,13 @@ public class CardBattleFrame extends JFrame {
         return b;
     }
 
-    /** @return el texto descriptivo corto para el efecto de un tipo de carta. */
+    /** @return el texto descriptivo corto para la accion asociada a un tipo de carta. */
     private String etiquetaTipo(CardType tipo) {
         switch (tipo) {
-            case DRAW: return "Roba 1";
-            case GUARD: return "Guardia (25000 def.)";
-            case DOUBLE_STRIKE: return "Double Strike";
-            default: return "Basica";
+            case DRAW: return "Jalar Carta";
+            case GUARD: return "Ataque Fuerte";
+            case DOUBLE_STRIKE: return "Golpe Doble";
+            default: return "Ataque Basico";
         }
     }
 
@@ -394,11 +435,12 @@ public class CardBattleFrame extends JFrame {
         }
     }
 
-    /** Boton para una carta en la mano del jugador: al hacer clic, se juega (si hay energia). */
+    /** Boton para una carta en la mano del jugador: al hacer clic, se juega como una accion instantanea (si hay energia). */
     private JButton crearBotonCartaMano(GameCard c) {
-        String texto = "<html><center>" + c.getName() + "<br>PWR " + c.getEffectivePower(false)
-                + "<br>" + etiquetaTipo(c.getType()) + "<br>Costo " + c.getCost()
-                + "<br>Combo " + c.getComboPower() + "</center></html>";
+        String descAccion = c.drawsOnPlay() ? "Roba 1 carta" : ("Dano " + c.getDanoDirecto() + (c.isDoubleStrike() ? " x2" : ""));
+        String texto = "<html><center>" + c.getName() + "<br>" + etiquetaTipo(c.getType())
+                + "<br>" + descAccion + "<br>Costo " + c.getCost()
+                + "<br>Combo +" + c.getComboPower() + "</center></html>";
         JButton b = new JButton(texto);
         b.setIcon(CardArt.stickmanIcon(c.getType(), new Color(70, 70, 70)));
         b.setHorizontalTextPosition(SwingConstants.CENTER);
@@ -410,29 +452,22 @@ public class CardBattleFrame extends JFrame {
         return b;
     }
 
-    /** Boton para una carta en un area de batalla. Solo es interactiva (para atacar) si es del jugador. */
+    /** Boton para una carta ya jugada: al ser una accion de un solo uso, solo sirve de historial visual del turno. */
     private JButton crearBotonCartaAreaBatalla(GameCard c, boolean esDelJugador) {
-        String texto = "<html><center>" + c.getName() + "<br>PWR " + c.getEffectivePower(false)
-                + "<br>" + etiquetaTipo(c.getType())
-                + (c.isRested() ? "<br>[girada]" : "") + "</center></html>";
+        String texto = "<html><center>" + c.getName() + "<br>" + etiquetaTipo(c.getType()) + "</center></html>";
         JButton b = new JButton(texto);
         b.setIcon(CardArt.stickmanIcon(c.getType(), esDelJugador ? Color.BLUE : Color.RED));
         b.setHorizontalTextPosition(SwingConstants.CENTER);
         b.setVerticalTextPosition(SwingConstants.BOTTOM);
         b.setBackground(colorTipo(c.getType()));
         b.setOpaque(true);
-        if (esDelJugador) {
-            b.setEnabled(!gameOver && !c.isRested());
-            b.addActionListener(e -> atacarConCarta(c));
-        } else {
-            b.setEnabled(false);
-        }
+        b.setEnabled(false);
         return b;
     }
 
     // ---------------- ACCIONES DEL JUGADOR ----------------
 
-    /** Juega una carta de la mano al area de batalla, si hay energia suficiente; aplica su efecto de robo si corresponde. */
+    /** Juega una carta de la mano como una accion instantanea: robar, o daño directo con combo opcional. */
     private void jugarCartaDeMano(GameCard c) {
         if (gameOver) {
             return;
@@ -443,49 +478,61 @@ public class CardBattleFrame extends JFrame {
         }
         human.getHand().remover(c);
         human.getBattleArea().agregar(c);
-        appendLog("Juegas " + c.getName() + " (PWR " + c.getEffectivePower(false) + ").");
+        appendLog("Juegas " + c.getName() + ".");
+
+        int comboExtra = 0;
+        if (!c.drawsOnPlay()) {
+            comboExtra = preguntarCombo(human, "reforzar el ataque de " + c.getName());
+            if (comboExtra > 0) {
+                appendLog("Usas combo: +" + comboExtra + " de daño extra.");
+            }
+        }
         human.encolarEfectoDeCarta(c);
-        resolverEfectosPendientes(human);
+        resolverEfectosPendientes(human, cpu, comboExtra);
         if (gameOver) {
             return;
         }
         refreshUI();
     }
 
-    /** Maneja el clic en el boton de potenciar: pide al jugador elegir una carta propia y le suma +5000 de poder. */
+    /** Maneja el clic en el boton de potenciar: gasta energia y prepara un bono de daño para tu proximo ataque. */
     private void onBoost() {
-        if (gameOver || human.getBattleArea().esVacia()) {
+        if (gameOver) {
             return;
         }
-        GameCard[] opciones = human.getBattleArea().comoListaTemporal().toArray(new GameCard[0]);
-        GameCard elegido = (GameCard) JOptionPane.showInputDialog(this, "Elige la carta a potenciar (+5000):",
-                "Potenciar", JOptionPane.PLAIN_MESSAGE, null, opciones, opciones[0]);
-        if (elegido == null) {
+        if (human.getLeader().isBoostUsedThisTurn()) {
+            appendLog("Ya usaste Potenciar este turno.");
             return;
         }
         if (!human.spendEnergy(human.getLeader().getBoostCost())) {
             appendLog("No tienes suficiente energia para potenciar.");
             return;
         }
-        elegido.addBonus(human.getLeader().getBoostAmount());
         human.getLeader().setBoostUsedThisTurn(true);
-        appendLog("Tu lider potencia a " + elegido.getName() + " (+5000 poder).");
+        int bono = human.getLeader().getBoostAmount();
+        human.agregarBonusAtaque(bono);
+        appendLog("Tu lider potencia tu proximo ataque (+" + bono + " de daño).");
         refreshUI();
     }
 
-    /** Ataca con el lider del jugador humano: calcula su poder (con bono de mano), permite combo y roba una carta. */
+    /** Ataca con el lider del jugador humano: daño directo (con bono de mano), permite combo y roba una carta. */
     private void atacarConLider() {
         if (gameOver || human.getLeader().isRested()) {
             return;
         }
-        int poder = human.getLeader().getAttackPower(human.getHand().tamano());
+        int dano = human.getLeader().getDanoAtaque(human.getHand().tamano());
         human.getLeader().setRested(true);
-        appendLog("Tu lider ataca con " + poder + " de poder.");
+        appendLog("Tu lider ataca.");
 
         int combo = preguntarCombo(human, "el ataque de tu Lider");
         if (combo > 0) {
-            poder += combo;
-            appendLog("Usas combo: +" + combo + " de poder (total " + poder + ").");
+            dano += combo;
+            appendLog("Usas combo: +" + combo + " de daño (total " + dano + ").");
+        }
+        int bono = human.consumirBonusAtaque();
+        if (bono > 0) {
+            dano += bono;
+            appendLog("Usas tu bono de Potenciar: +" + bono + " de daño (total " + dano + ").");
         }
 
         try {
@@ -496,26 +543,12 @@ public class CardBattleFrame extends JFrame {
             return;
         }
 
-        resolverAtaque(human, cpu, poder, false, "Tu Lider");
-        refreshUI();
-    }
-
-    /** Ataca con una carta del area de batalla del jugador humano (queda girada) y permite reforzarla con combo. */
-    private void atacarConCarta(GameCard c) {
-        if (gameOver || c.isRested()) {
+        appendLog("Tu lider golpea a la CPU por " + dano + " de vida.");
+        boolean derrotado = cpu.takeDamage(dano);
+        if (derrotado) {
+            declararDerrota(cpu);
             return;
         }
-        int poder = c.getEffectivePower(false);
-        c.setRested(true);
-        appendLog(c.getName() + " ataca con " + poder + " de poder.");
-
-        int combo = preguntarCombo(human, "el ataque de " + c.getName());
-        if (combo > 0) {
-            poder += combo;
-            appendLog("Usas combo: +" + combo + " de poder (total " + poder + ").");
-        }
-
-        resolverAtaque(human, cpu, poder, c.isDoubleStrike(), c.getName());
         refreshUI();
     }
 
@@ -546,8 +579,10 @@ public class CardBattleFrame extends JFrame {
     // ---------------- TURNO DE LA CPU ----------------
 
     /**
-     * Ejecuta el turno completo de la CPU: robar, jugar cartas mientras tenga energia,
-     * atacar con su lider (si no esta girado) y luego con cada carta sin girar de su area de batalla.
+     * Ejecuta el turno completo de la CPU: robar, jugar cartas (acciones) mientras tenga
+     * energia, y luego atacar con su lider si no esta girado. El ataque del lider CPU es el
+     * clímax del turno: se dramatiza como una fase de esquive en tiempo real estilo Undertale
+     * (ver {@link #iniciarFaseEsquive}) en vez de resolverse por comparacion de poder.
      */
     private void turnoCpu() {
         appendLog("\n=== Turno de la CPU ===");
@@ -570,28 +605,44 @@ public class CardBattleFrame extends JFrame {
                     cpu.spendEnergy(c.getCost());
                     cpu.getHand().remover(c);
                     cpu.getBattleArea().agregar(c);
-                    appendLog("CPU juega " + c.getName() + " (PWR " + c.getEffectivePower(false) + ").");
+                    appendLog("CPU juega " + c.getName() + ".");
+                    int comboCpu = c.drawsOnPlay() ? 0 : cpuComboOfensivoOportunista();
                     cpu.encolarEfectoDeCarta(c);
+                    // Se resuelve de inmediato (en orden de prioridad si hubiera mas de un
+                    // efecto encolado) para que el daño de esta carta se aplique antes de decidir
+                    // si la CPU sigue jugando otra.
+                    resolverEfectosPendientes(cpu, human, comboCpu);
+                    if (gameOver) {
+                        return;
+                    }
                     jugoAlgo = true;
                     break;
                 }
             }
         }
-        // Al terminar la fase de juego, se resuelven todos los efectos encolados en orden de
-        // prioridad (Cola de Prioridad propia): si la CPU jugo varias cartas, las de habilidad
-        // mas fuerte se resuelven antes que las demas, sin importar el orden en que se jugaron.
-        resolverEfectosPendientes(cpu);
-        if (gameOver) {
-            return;
-        }
         refreshUI();
 
-        // La CPU ataca con el lider (si no esta girado) y todas sus cartas sin girar.
+        // El Lider CPU ataca una vez por turno (si no esta girado): en vez de comparar poder,
+        // el jugador humano esquiva el ataque en tiempo real (estilo Undertale). Antes de que
+        // empiece la lluvia de balas, puede quemar cartas de su mano en combo para conseguir
+        // "escudos" (golpes que se absorben sin perder vida).
         if (!cpu.getLeader().isRested()) {
-            int poder = cpu.getLeader().getDefensePower();
             cpu.getLeader().setRested(true);
-            appendLog("El Lider CPU ataca con " + poder + " de poder.");
-            poder += cpuComboOfensivoOportunista();
+            int danoPorGolpe = cpu.getLeader().getDanoAtaque(0);
+            appendLog("\n¡El Lider CPU ataca! Prepara tu corazon para esquivar...");
+
+            int escudos = preguntarCombo(human, "prepararte con escudos para esquivar al Lider CPU");
+            if (escudos > 0) {
+                appendLog("Preparas " + escudos + " escudo(s) con combo.");
+            }
+
+            boolean fasesDificiles = cpu.getLeader().isTransformed();
+            int duracionMs = fasesDificiles ? 8000 : 6000;
+            int golpes = iniciarFaseEsquive(duracionMs,
+                    fasesDificiles ? 350 : 500, fasesDificiles ? 700 : 1000,
+                    fasesDificiles ? 2.5 : 1.8, fasesDificiles ? 4.5 : 3.2,
+                    escudos);
+
             try {
                 cpu.drawCard();
                 appendLog("El Lider CPU roba 1 carta al atacar.");
@@ -599,19 +650,15 @@ public class CardBattleFrame extends JFrame {
                 declararDerrota(cpu);
                 return;
             }
-            resolverAtaque(cpu, human, poder, false, "Lider CPU");
-            if (gameOver) {
-                return;
-            }
-        }
-        for (GameCard c : cpu.getBattleArea()) {
-            if (!c.isRested()) {
-                int poder = c.getEffectivePower(false);
-                c.setRested(true);
-                appendLog("CPU ataca con " + c.getName() + " (PWR " + poder + ").");
-                poder += cpuComboOfensivoOportunista();
-                resolverAtaque(cpu, human, poder, c.isDoubleStrike(), c.getName());
-                if (gameOver) {
+
+            if (golpes <= 0) {
+                appendLog("¡Esquivaste todos los ataques del Lider CPU! No recibes daño.");
+            } else {
+                int danoTotal = golpes * danoPorGolpe;
+                appendLog("El corazon recibio " + golpes + " golpe(s): pierdes " + danoTotal + " de vida.");
+                boolean derrotado = human.takeDamage(danoTotal);
+                if (derrotado) {
+                    declararDerrota(human);
                     return;
                 }
             }
@@ -620,8 +667,35 @@ public class CardBattleFrame extends JFrame {
     }
 
     /**
+     * Abre un dialogo modal con la fase de esquive ({@link PanelEsquive}) y espera a que
+     * termine. Como un {@code JDialog} modal sigue despachando eventos (incluidos los del
+     * {@code Timer} interno del panel) mientras esta visible, este metodo puede escribirse de
+     * forma sincrona: no retorna hasta que la fase de esquive termino.
+     *
+     * @param duracionMs          duracion de la fase, en milisegundos
+     * @param spawnMinMs          intervalo minimo entre balas nuevas
+     * @param spawnMaxMs          intervalo maximo entre balas nuevas
+     * @param velMin              velocidad minima de las balas
+     * @param velMax              velocidad maxima de las balas
+     * @param escudos             golpes que se absorben sin quitar vida (de combo previo)
+     * @return la cantidad de golpes que el corazon recibio (ya sin contar los escudos)
+     */
+    private int iniciarFaseEsquive(int duracionMs, int spawnMinMs, int spawnMaxMs,
+                                    double velMin, double velMax, int escudos) {
+        JDialog dialogo = new JDialog(this, "¡Esquiva el ataque del Lider CPU!", true);
+        PanelEsquive panel = new PanelEsquive(duracionMs, spawnMinMs, spawnMaxMs, velMin, velMax, escudos);
+        dialogo.getContentPane().add(panel);
+        dialogo.pack();
+        dialogo.setResizable(false);
+        dialogo.setLocationRelativeTo(this);
+        panel.iniciar(dialogo::dispose);
+        dialogo.setVisible(true);
+        return panel.getGolpesRecibidos();
+    }
+
+    /**
      * IA simple de combo ofensivo para la CPU: con 30% de probabilidad, quema la carta de su mano
-     * con menor poder de combo (para no gastar sus mejores comodines) y suma ese poder al ataque.
+     * con menor poder de combo (para no gastar sus mejores comodines) y suma ese daño extra al ataque.
      */
     private int cpuComboOfensivoOportunista() {
         if (cpu.getHand().esVacia() || random.nextDouble() > 0.3) {
@@ -637,104 +711,17 @@ public class CardBattleFrame extends JFrame {
             return 0;
         }
         cpu.getHand().remover(elegido);
-        appendLog("CPU quema " + elegido.getName() + " en combo (+" + elegido.getComboPower() + " de poder).");
+        appendLog("CPU quema " + elegido.getName() + " en combo (+" + elegido.getComboPower() + " de daño).");
         return elegido.getComboPower();
     }
 
-    // ---------------- RESOLUCION DE COMBATE ----------------
-
-    /**
-     * Resuelve un ataque de "atacante" contra "defensor" con el poder dado.
-     * Si el defensor es la CPU, la bloquea una IA simple; si es el jugador humano, se le pregunta con un dialogo.
-     */
-    private void resolverAtaque(CardPlayer atacante, CardPlayer defensor, int poderAtaque, boolean doubleStrike, String nombreAtacante) {
-        Object bloqueador = elegirBloqueador(defensor, poderAtaque);
-
-        if (bloqueador == null) {
-            int poderLider = defensor.getLeader().getDefensePower();
-
-            // Aunque no bloquees con una carta, puedes usar combo para reforzar la resistencia de tu Lider.
-            if (defensor == human) {
-                int combo = preguntarCombo(human, "resistir el golpe con tu Lider");
-                if (combo > 0) {
-                    poderLider += combo;
-                    appendLog("Usas combo para reforzar a tu Lider: +" + combo + " de poder (total " + poderLider + ").");
-                }
-            } else {
-                int combo = cpuComboDefensivo(poderAtaque, poderLider);
-                if (combo > 0) {
-                    poderLider += combo;
-                    appendLog("CPU usa combo para reforzar a su Lider: +" + combo + " de poder (total " + poderLider + ").");
-                }
-            }
-
-            if (poderAtaque < poderLider) {
-                appendLog(nombreAtacante + " (PWR " + poderAtaque + ") no logra superar el poder del Lider de "
-                        + defensor.getName() + " (PWR " + poderLider + "). No hay daño de vida.");
-                return;
-            }
-            int dano = doubleStrike ? 2 : 1;
-            appendLog(nombreAtacante + " conecta sin bloqueo! " + defensor.getName() + " pierde " + dano + " de vida.");
-            boolean derrotado = defensor.takeDamage(dano);
-            if (derrotado) {
-                declararDerrota(defensor);
-            }
-            return;
-        }
-
-        int poderDef;
-        if (bloqueador instanceof LeaderCard) {
-            poderDef = ((LeaderCard) bloqueador).getDefensePower();
-        } else {
-            poderDef = ((GameCard) bloqueador).getEffectivePower(true);
-        }
-
-        // Combo defensivo: solo tiene sentido si bloquea una CARTA (el lider nunca es destruido,
-        // asi que gastar combo para defenderlo seria un desperdicio).
-        if (bloqueador instanceof GameCard) {
-            if (defensor == human) {
-                int combo = preguntarCombo(human, "defenderte");
-                if (combo > 0) {
-                    poderDef += combo;
-                    appendLog("Usas combo para defenderte: +" + combo + " de poder (total " + poderDef + ").");
-                }
-            } else {
-                int combo = cpuComboDefensivo(poderAtaque, poderDef);
-                if (combo > 0) {
-                    poderDef += combo;
-                    appendLog("CPU usa combo para defenderse: +" + combo + " de poder (total " + poderDef + ").");
-                }
-            }
-        }
-
-        if (bloqueador instanceof LeaderCard) {
-            LeaderCard l = (LeaderCard) bloqueador;
-            l.setRested(true);
-            appendLog(defensor.getName() + " bloquea con su Lider (PWR " + poderDef + ").");
-            if (poderAtaque > poderDef) {
-                appendLog("El lider de " + defensor.getName() + " resiste el golpe, pero no es destruido (los lideres no mueren en combate).");
-            } else {
-                appendLog("El ataque es repelido por el Lider de " + defensor.getName() + ".");
-            }
-        } else {
-            GameCard c = (GameCard) bloqueador;
-            c.setRested(true);
-            appendLog(defensor.getName() + " bloquea con " + c.getName() + " (PWR " + poderDef + ").");
-            if (poderAtaque > poderDef) {
-                defensor.getBattleArea().remover(c);
-                appendLog(c.getName() + " es destruida.");
-            } else if (poderAtaque < poderDef) {
-                appendLog("El ataque es repelido; el atacante no logra destruir a " + c.getName() + ".");
-            } else {
-                defensor.getBattleArea().remover(c);
-                appendLog("Empate de poder: " + c.getName() + " es destruida.");
-            }
-        }
-    }
+    // ---------------- COMBO ----------------
 
     /**
      * Muestra un dialogo para que el jugador humano elija cartas de su mano para usar en combo
-     * (se queman: se descartan permanentemente) y devuelve la suma de su poder de combo.
+     * (se queman: se descartan permanentemente) y devuelve la suma de su poder de combo. Se usa
+     * tanto para reforzar un ataque como, defensivamente, para preparar escudos antes de la fase
+     * de esquive del Lider CPU.
      */
     private int preguntarCombo(CardPlayer p, String contexto) {
         if (p.getHand().esVacia()) {
@@ -766,99 +753,6 @@ public class CardBattleFrame extends JFrame {
             p.getHand().remover(c);
         }
         return total;
-    }
-
-    /**
-     * IA simple de combo defensivo para la CPU: si el bloqueo por si solo no alcanza, intenta quemar
-     * cartas de su mano (empezando por las de mayor poder de combo) hasta cubrir la diferencia.
-     * Si no le alcanza con toda su mano, no arriesga cartas y deja que el bloqueo pierda igual.
-     * Implementado con una seleccion voraz manual (sin Collections.sort) sobre un arreglo temporal.
-     */
-    private int cpuComboDefensivo(int poderAtaque, int poderDefActual) {
-        int faltante = poderAtaque - poderDefActual;
-        if (faltante <= 0 || cpu.getHand().esVacia()) {
-            return 0;
-        }
-        GameCard[] disponibles = cpu.getHand().comoListaTemporal().toArray(new GameCard[0]);
-        boolean[] usada = new boolean[disponibles.length];
-        int acumulado = 0;
-        while (acumulado < faltante) {
-            int mejorIdx = -1;
-            for (int i = 0; i < disponibles.length; i++) {
-                if (!usada[i] && (mejorIdx == -1 || disponibles[i].getComboPower() > disponibles[mejorIdx].getComboPower())) {
-                    mejorIdx = i;
-                }
-            }
-            if (mejorIdx == -1) {
-                break; // ya no quedan cartas disponibles en la mano
-            }
-            usada[mejorIdx] = true;
-            acumulado += disponibles[mejorIdx].getComboPower();
-        }
-        if (acumulado < faltante) {
-            return 0; // no alcanza ni usando toda la mano: no arriesga las cartas
-        }
-        for (int i = 0; i < disponibles.length; i++) {
-            if (usada[i]) {
-                cpu.getHand().remover(disponibles[i]);
-            }
-        }
-        return acumulado;
-    }
-
-    /** Determina que bloquea el defensor: IA simple para la CPU, dialogo para el humano. */
-    private Object elegirBloqueador(CardPlayer defensor, int poderAtaque) {
-        if (defensor == cpu) {
-            // El lider nunca es destruido en combate, asi que bloquear con el es siempre seguro.
-            if (!cpu.getLeader().isRested()) {
-                return cpu.getLeader();
-            }
-            GameCard mejor = null;
-            for (GameCard c : cpu.getBattleArea()) {
-                if (!c.isRested() && (mejor == null || c.getEffectivePower(true) > mejor.getEffectivePower(true))) {
-                    mejor = c;
-                }
-            }
-            if (mejor == null) {
-                return null;
-            }
-            int totalComboDisponible = 0;
-            for (GameCard c : cpu.getHand()) {
-                totalComboDisponible += c.getComboPower();
-            }
-            if (mejor.getEffectivePower(true) >= poderAtaque || mejor.getEffectivePower(true) + totalComboDisponible >= poderAtaque) {
-                return mejor;
-            }
-            return null; // no vale la pena arriesgar la carta si de todas formas no alcanza
-        } else {
-            List<Object> opciones = new ArrayList<>();
-            List<String> etiquetas = new ArrayList<>();
-            for (GameCard c : human.getBattleArea()) {
-                if (!c.isRested()) {
-                    opciones.add(c);
-                    etiquetas.add(c.getName() + " (PWR " + c.getEffectivePower(true) + ")");
-                }
-            }
-            if (!human.getLeader().isRested()) {
-                opciones.add(human.getLeader());
-                etiquetas.add("Tu Lider (PWR " + human.getLeader().getDefensePower() + ")");
-            }
-            etiquetas.add("No bloquear (recibir el ataque)");
-
-            if (opciones.isEmpty()) {
-                return null;
-            }
-
-            String[] etiquetasArr = etiquetas.toArray(new String[0]);
-            String eleccion = (String) JOptionPane.showInputDialog(this,
-                    "La CPU te ataca con " + poderAtaque + " de poder. ¿Con que bloqueas?",
-                    "Bloquear", JOptionPane.PLAIN_MESSAGE, null, etiquetasArr, etiquetasArr[etiquetasArr.length - 1]);
-            if (eleccion == null || eleccion.equals("No bloquear (recibir el ataque)")) {
-                return null;
-            }
-            int idx = etiquetas.indexOf(eleccion);
-            return idx >= 0 ? opciones.get(idx) : null;
-        }
     }
 
     /** Marca la partida como terminada, registra el resultado en el log y muestra el dialogo final. */

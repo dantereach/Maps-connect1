@@ -24,13 +24,13 @@ public final class ArbolesEvolucion {
     private static final Map<String, ArbolEvolucion<GameCard>> ARBOLES = new HashMap<>();
 
     static {
-        registrarLinea("Guerrero Basico", "Guerrero Mejorado", "Guerrero Legendario",
+        registrarLinea("Ataque Basico", "Ataque Mejorado", "Ataque Legendario",
                 15000, 22000, 30000, CardType.BASIC);
-        registrarLinea("Explorador", "Explorador Mejorado", "Explorador Legendario",
+        registrarLinea("Jalar Carta", "Jalar Carta Mejorada", "Jalar Carta Legendaria",
                 5000, 9000, 14000, CardType.DRAW);
-        registrarLinea("Guardian", "Guardian Mejorado", "Guardian Legendario",
+        registrarLinea("Ataque Fuerte", "Ataque Fuerte Mejorado", "Ataque Fuerte Legendario",
                 20000, 27000, 34000, CardType.GUARD);
-        registrarLinea("Golpeador Doble", "Golpeador Mejorado", "Golpeador Legendario",
+        registrarLinea("Golpe Doble", "Golpe Doble Mejorado", "Golpe Doble Legendario",
                 35000, 42000, 50000, CardType.DOUBLE_STRIKE);
     }
 
@@ -54,7 +54,7 @@ public final class ArbolesEvolucion {
      * Busca, por el nombre de la familia basica (tabla hash, O(1)), el arbol de evolucion
      * completo de esa familia de cartas.
      *
-     * @param nombreFamiliaBasica nombre del nivel basico de la familia (ej. "Guardian")
+     * @param nombreFamiliaBasica nombre del nivel basico de la familia (ej. "Ataque Fuerte")
      * @return el arbol de evolucion de esa familia
      * @throws NoSuchElementException si no hay ningun arbol registrado con ese nombre
      */

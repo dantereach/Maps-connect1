@@ -1,21 +1,22 @@
 package dbfw.cardgame;
 
 /**
- * Carta de Lider del modo "juego de cartas".
+ * Carta de Lider del modo hibrido Undertale/Slay the Spire.
  * <p>
- * El lider representa al jugador (o a la CPU) en la mesa: nunca es destruido en combate,
- * puede atacar y bloquear como una carta mas, y en el caso del lider azul tiene tres
- * habilidades especiales configurables mediante el constructor:
+ * El lider representa al jugador (o a la CPU) en la mesa. En el turno del jugador humano, su
+ * ataque quita vida de inmediato (sin bloqueo); en el turno de la CPU, su ataque es la fase de
+ * esquive estilo Undertale (ver {@code CardBattleFrame#turnoCpu}). En el caso del lider azul,
+ * tiene tres habilidades especiales configurables mediante el constructor:
  * <ol>
  *   <li><b>Transformacion</b>: cuando la vida de su dueño cae a 4 o menos, el lider se da la
- *       vuelta y su poder base cambia de {@code basePower} a .</li>
+ *       vuelta y su poder base cambia de {@code basePower} a {@code transformedPower}.</li>
  *   <li><b>Bono por mano reducida</b>: si al momento de atacar la mano tiene
  *       {@code handBonusThreshold} cartas o menos, ataca con {@code handBonusPower} en vez de
- *       su poder normal.</li>
- *   <li><b>Potenciar</b>: una vez por turno, puede agregar  de poder a una
- *       carta propia en el area de batalla, pagando  de energia.</li>
+ *       su poder normal (su golpe mas fuerte, ver {@link #getDanoAtaque(int)}).</li>
+ *   <li><b>Potenciar</b>: una vez por turno, puede sumar {@code boostAmount} de daño extra al
+ *       proximo ataque del jugador (carta o lider), pagando {@code boostCost} de energia.</li>
  * </ol>
- * El lider de la CPU se crea sin ninguna de estas habilidades }).
+ * El lider de la CPU se crea sin ninguna de estas habilidades ({@link #crearLiderCpu()}).
  */
 public class LeaderCard {
     /** Nombre visible del lider. */
@@ -26,7 +27,7 @@ public class LeaderCard {
     private final int transformedPower;
     /** True una vez que el lider se transformo (la transformacion es permanente). */
     private boolean transformed = false;
-    /** True si el lider ya ataco o bloqueo este turno. */
+    /** True si el lider ya ataco este turno. */
     private boolean rested = false;
 
     // Habilidad: ataca con mas poder si la mano tiene pocas cartas.
@@ -37,10 +38,10 @@ public class LeaderCard {
     /** Poder de ataque cuando aplica el bono de mano reducida. */
     private final int handBonusPower;
 
-    // Habilidad: puede agregar poder a una carta propia (una vez por turno).
-    /** True si este lider puede usar la habilidad de potenciar una carta propia. */
+    // Habilidad: puede sumar daño extra al proximo ataque del jugador (una vez por turno).
+    /** True si este lider puede usar la habilidad de potenciar el proximo ataque. */
     private final boolean canBoost;
-    /** Cantidad de poder que otorga la habilidad de potenciar. */
+    /** Puntos de daño extra que otorga la habilidad de potenciar al proximo ataque. */
     private final int boostAmount;
     /** Costo en energia de la habilidad de potenciar. */
     private final int boostCost;
@@ -56,8 +57,8 @@ public class LeaderCard {
      * @param hasHandBonus       si tiene la habilidad de atacar mas fuerte con poca mano
      * @param handBonusThreshold cartas en mano (o menos) para activar el bono de ataque
      * @param handBonusPower     poder de ataque cuando el bono esta activo
-     * @param canBoost           si puede potenciar una carta propia una vez por turno
-     * @param boostAmount        poder que otorga la habilidad de potenciar
+     * @param canBoost           si puede potenciar el proximo ataque una vez por turno
+     * @param boostAmount        puntos de daño extra que otorga la habilidad de potenciar
      * @param boostCost          costo en energia de la habilidad de potenciar
      */
     public LeaderCard(String name, int basePower, int transformedPower,
@@ -76,7 +77,7 @@ public class LeaderCard {
 
     /** Lider azul del jugador con todas sus habilidades especiales. */
     public static LeaderCard crearLiderAzul() {
-        return new LeaderCard("Lider Azul", 15000, 20000, true, 7, 35000, true, 5000, 1);
+        return new LeaderCard("Lider Azul", 15000, 20000, true, 7, 35000, true, 1, 1);
     }
 
     /** Lider generico y simple de la CPU, sin habilidades especiales. */
@@ -104,12 +105,12 @@ public class LeaderCard {
         this.rested = rested;
     }
 
-    /** @return true si este lider tiene la habilidad de potenciar una carta propia. */
+    /** @return true si este lider tiene la habilidad de potenciar el proximo ataque. */
     public boolean canBoost() {
         return canBoost;
     }
 
-    /** @return el poder que otorga la habilidad de potenciar. */
+    /** @return los puntos de daño extra que otorga la habilidad de potenciar. */
     public int getBoostAmount() {
         return boostAmount;
     }
@@ -155,6 +156,27 @@ public class LeaderCard {
     /** Poder de defensa (bloqueo): no aplica el bono de mano reducida. */
     public int getDefensePower() {
         return getCurrentBasePower();
+    }
+
+    /**
+     * Daño directo que este lider inflige al atacar, traducido del poder de ataque
+     * ({@link #getAttackPower(int)}) a puntos de vida: entre mayor el poder, mas vida quita.
+     * El ataque del lider ya no se compara contra ninguna carta bloqueadora: en el turno del
+     * jugador humano se aplica de inmediato, y en el turno de la CPU es el daño potencial de la
+     * fase de esquive estilo Undertale (ver {@code CardBattleFrame#turnoCpu}).
+     *
+     * @param handSize cantidad de cartas en la mano del dueño de este lider en el momento del ataque
+     * @return puntos de vida que pierde el rival: 1 con el poder base (15000), 2 transformado
+     *         (20000) y 4 con el bono de mano reducida (35000, el golpe mas fuerte del lider azul)
+     */
+    public int getDanoAtaque(int handSize) {
+        int poder = getAttackPower(handSize);
+        if (poder >= 35000) {
+            return 4;
+        } else if (poder >= 20000) {
+            return 2;
+        }
+        return 1;
     }
 
     @Override

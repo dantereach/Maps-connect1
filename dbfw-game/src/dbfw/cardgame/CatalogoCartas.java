@@ -7,16 +7,18 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 
 /**
- * Catalogo de las familias de cartas de batalla disponibles en el juego, indexado por nombre
- * mediante una tabla hash ({@link java.util.HashMap}) para poder buscar la plantilla de una
- * familia al instante (O(1) en promedio) en vez de recorrer una lista completa comparando
- * nombres uno por uno.
+ * Catalogo de las acciones de carta disponibles en el juego, indexado por nombre mediante
+ * una tabla hash ({@link java.util.HashMap}) para poder buscar la plantilla de una familia
+ * al instante (O(1) en promedio) en vez de recorrer una lista completa comparando nombres
+ * uno por uno.
  * <p>
- * Cada entrada es una "plantilla": una carta con las estadisticas base de su familia (poder,
- * costo y tipo). {@link CardPlayer#buildDeck()} usa este catalogo para construir el mazo de 24
- * cartas buscando cada familia por su nombre y generando copias numeradas con
+ * Cada entrada es una "plantilla": una carta-accion con las estadisticas base de su familia
+ * (poder, costo y tipo). {@link CardPlayer#buildDeck()} usa este catalogo para construir el
+ * mazo de 24 cartas buscando cada familia por su nombre y generando copias numeradas con
  * {@link GameCard#crearCopiaNumerada(int)}, en vez de repetir manualmente los datos de cada
- * carta con {@code new GameCard(...)}.
+ * carta con {@code new GameCard(...)}. Las 4 familias representan las acciones del jugador
+ * (hibrido Undertale/Slay the Spire): "Ataque Basico" y "Ataque Fuerte" atacan de inmediato
+ * la vida del rival, "Jalar Carta" roba del mazo y "Golpe Doble" ataca dos veces seguidas.
  */
 public final class CatalogoCartas {
 
@@ -24,10 +26,10 @@ public final class CatalogoCartas {
     private static final Map<String, GameCard> PLANTILLAS = new HashMap<>();
 
     static {
-        PLANTILLAS.put("Guerrero Basico", new GameCard("Guerrero Basico", 15000, 2, CardType.BASIC));
-        PLANTILLAS.put("Explorador", new GameCard("Explorador", 5000, 1, CardType.DRAW));
-        PLANTILLAS.put("Guardian", new GameCard("Guardian", 20000, 3, CardType.GUARD));
-        PLANTILLAS.put("Golpeador Doble", new GameCard("Golpeador Doble", 35000, 4, CardType.DOUBLE_STRIKE));
+        PLANTILLAS.put("Ataque Basico", new GameCard("Ataque Basico", 15000, 2, CardType.BASIC));
+        PLANTILLAS.put("Jalar Carta", new GameCard("Jalar Carta", 5000, 1, CardType.DRAW));
+        PLANTILLAS.put("Ataque Fuerte", new GameCard("Ataque Fuerte", 20000, 3, CardType.GUARD));
+        PLANTILLAS.put("Golpe Doble", new GameCard("Golpe Doble", 35000, 4, CardType.DOUBLE_STRIKE));
     }
 
     private CatalogoCartas() {
@@ -38,7 +40,7 @@ public final class CatalogoCartas {
      * Busca la plantilla de una familia de cartas por su nombre exacto (busqueda O(1) en la
      * tabla hash, sin recorrer ninguna lista).
      *
-     * @param nombreFamilia nombre de la familia (ej. "Guardian")
+     * @param nombreFamilia nombre de la familia (ej. "Ataque Fuerte")
      * @return la carta plantilla de esa familia
      * @throws NoSuchElementException si no existe ninguna familia registrada con ese nombre
      */
