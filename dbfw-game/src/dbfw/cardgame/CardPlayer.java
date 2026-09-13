@@ -154,17 +154,29 @@ public class CardPlayer {
     }
 
     /**
-     * Construye un mazo de 24 cartas balanceado entre las 4 familias del {@link CatalogoCartas}
-     * (tabla hash indexada por nombre), lo baraja con un Fisher-Yates manual (sin
-     * {@code Collections.shuffle}) y lo apila carta por carta en la Pila de robo.
+     * Construye el mazo balanceado por defecto: 6 copias de cada una de las 4 familias del
+     * {@link CatalogoCartas} (24 cartas en total). Se usa para el jugador humano.
      */
     public void buildDeck() {
+        buildDeck(new int[]{6, 6, 6, 6});
+    }
+
+    /**
+     * Construye un mazo de 24 cartas repartidas entre las 4 familias del {@link CatalogoCartas}
+     * (tabla hash indexada por nombre) segun las cantidades indicadas, lo baraja con un
+     * Fisher-Yates manual (sin {@code Collections.shuffle}) y lo apila carta por carta en la
+     * Pila de robo. Se usa para variar la dificultad del mazo de la CPU (ver {@link Dificultad}).
+     *
+     * @param conteoPorFamilia cantidad de copias de cada familia, en el orden Ataque Basico,
+     *                         Jalar Carta, Ataque Fuerte, Golpe Doble (debe sumar 24)
+     */
+    public void buildDeck(int[] conteoPorFamilia) {
         GameCard[] cartas = new GameCard[24];
         int idx = 0;
-        idx = agregarFamilia(cartas, idx, "Ataque Basico", 6);
-        idx = agregarFamilia(cartas, idx, "Jalar Carta", 6);
-        idx = agregarFamilia(cartas, idx, "Ataque Fuerte", 6);
-        idx = agregarFamilia(cartas, idx, "Golpe Doble", 6);
+        idx = agregarFamilia(cartas, idx, "Ataque Basico", conteoPorFamilia[0]);
+        idx = agregarFamilia(cartas, idx, "Jalar Carta", conteoPorFamilia[1]);
+        idx = agregarFamilia(cartas, idx, "Ataque Fuerte", conteoPorFamilia[2]);
+        idx = agregarFamilia(cartas, idx, "Golpe Doble", conteoPorFamilia[3]);
         barajar(cartas);
         for (GameCard carta : cartas) {
             deck.apilar(carta);

@@ -59,6 +59,8 @@ public class CardBattleFrame extends JFrame {
     private final CardPlayer cpu;
     private final Random random = new Random();
     private boolean gameOver = false;
+    /** Dificultad elegida antes de iniciar la partida (ver {@code dbfw.Main}); afecta el mazo de la CPU, su IA de combo y la fase de esquive. */
+    private final Dificultad dificultad;
 
     /**
      * Ciclo de turnos entre el jugador humano y la CPU: Lista Circular propia (ver
@@ -100,14 +102,18 @@ public class CardBattleFrame extends JFrame {
      * Construye la ventana, crea a ambos jugadores con sus mazos y manos iniciales,
      * arma todos los paneles de la interfaz y deja lista la partida para que el
      * jugador humano tome su primer turno.
+     *
+     * @param dificultad dificultad elegida en el selector inicial (ver {@code dbfw.Main}):
+     *                   ajusta el mazo de la CPU, su IA de combo y la fase de esquive
      */
-    public CardBattleFrame() {
-        super("Tecmilenio Heroes - Juego de Cartas");
+    public CardBattleFrame(Dificultad dificultad) {
+        super("Tecmilenio Heroes - Undertale/Slay the Spire (" + dificultad + ")");
+        this.dificultad = dificultad;
 
         human = new CardPlayer("Tu", LeaderCard.crearLiderAzul());
         cpu = new CardPlayer("CPU", LeaderCard.crearLiderCpu());
         human.buildDeck();
-        cpu.buildDeck();
+        cpu.buildDeck(dificultad.getConteoPorFamilia());
         human.drawInitialHand(5);
         cpu.drawInitialHand(5);
         human.startTurn();
@@ -195,6 +201,7 @@ public class CardBattleFrame extends JFrame {
         add(sur, BorderLayout.SOUTH);
 
         appendLog("=== TECMILENIO HEROES - Modo Undertale/Slay the Spire ===");
+        appendLog("Dificultad: " + dificultad + ".");
         appendLog("Haz clic en una carta de tu mano para usarla como accion, o ataca con tu Lider.");
         refreshUI();
 
@@ -637,11 +644,21 @@ public class CardBattleFrame extends JFrame {
             }
 
             boolean fasesDificiles = cpu.getLeader().isTransformed();
-            int duracionMs = fasesDificiles ? 8000 : 6000;
-            int golpes = iniciarFaseEsquive(duracionMs,
-                    fasesDificiles ? 350 : 500, fasesDificiles ? 700 : 1000,
-                    fasesDificiles ? 2.5 : 1.8, fasesDificiles ? 4.5 : 3.2,
-                    escudos);
+            int duracionBase = fasesDificiles ? 8000 : 6000;
+            int spawnMinBase = fasesDificiles ? 350 : 500;
+            int spawnMaxBase = fasesDificiles ? 700 : 1000;
+            double velMinBase = fasesDificiles ? 2.5 : 1.8;
+            double velMaxBase = fasesDificiles ? 4.5 : 3.2;
+
+            // La dificultad elegida al iniciar la partida escala la fase de esquive: mas
+            // duracion, balas mas seguidas (intervalo menor) y mas rapidas en Dificil.
+            int duracionMs = (int) Math.round(duracionBase * dificultad.getMultiplicadorDuracion());
+            int spawnMinMs = Math.max(120, (int) Math.round(spawnMinBase * dificultad.getMultiplicadorSpawn()));
+            int spawnMaxMs = Math.max(spawnMinMs + 80, (int) Math.round(spawnMaxBase * dificultad.getMultiplicadorSpawn()));
+            double velMin = velMinBase * dificultad.getMultiplicadorVelocidad();
+            double velMax = velMaxBase * dificultad.getMultiplicadorVelocidad();
+
+            int golpes = iniciarFaseEsquive(duracionMs, spawnMinMs, spawnMaxMs, velMin, velMax, escudos);
 
             try {
                 cpu.drawCard();
@@ -694,11 +711,12 @@ public class CardBattleFrame extends JFrame {
     }
 
     /**
-     * IA simple de combo ofensivo para la CPU: con 30% de probabilidad, quema la carta de su mano
-     * con menor poder de combo (para no gastar sus mejores comodines) y suma ese daño extra al ataque.
+     * IA simple de combo ofensivo para la CPU: segun la probabilidad de la dificultad elegida
+     * (ver {@link Dificultad#getProbabilidadComboCpu()}), quema la carta de su mano con menor
+     * poder de combo (para no gastar sus mejores comodines) y suma ese daño extra al ataque.
      */
     private int cpuComboOfensivoOportunista() {
-        if (cpu.getHand().esVacia() || random.nextDouble() > 0.3) {
+        if (cpu.getHand().esVacia() || random.nextDouble() > dificultad.getProbabilidadComboCpu()) {
             return 0;
         }
         GameCard elegido = null;
