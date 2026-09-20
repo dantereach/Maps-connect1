@@ -2,6 +2,7 @@ package dbfw.cardgame;
 
 import java.awt.Color;
 import java.awt.Font;
+import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComponent;
@@ -33,8 +34,8 @@ public final class TemaUndertale {
     /** Fuente de menu con estilo de terminal. */
     public static final Font FUENTE_MENU = new Font("Consolas", Font.BOLD, 14);
 
-    /** Aplica el estilo negro/verde a un boton (fondo negro, texto y borde verde). */
-    public static void estilizar(JButton b) {
+    /** Aplica el estilo negro/verde a un boton o casilla (fondo negro, texto y borde verde). */
+    public static void estilizar(AbstractButton b) {
         b.setBackground(FONDO);
         b.setForeground(VERDE);
         b.setFont(FUENTE_MENU);

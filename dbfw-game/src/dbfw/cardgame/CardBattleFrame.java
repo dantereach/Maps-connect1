@@ -9,19 +9,23 @@ import dbfw.cardgame.estructuras.ListaSimple;
 import dbfw.cardgame.excepciones.ColaPrioridadVaciaException;
 import dbfw.cardgame.excepciones.MazoVacioException;
 import dbfw.cardgame.undertale.PanelEsquive;
+import javax.swing.AbstractAction;
+import javax.swing.ActionMap;
 import javax.swing.BorderFactory;
-import javax.swing.DefaultListModel;
+import javax.swing.BoxLayout;
+import javax.swing.InputMap;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
+import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSlider;
 import javax.swing.JTextArea;
-import javax.swing.ListSelectionModel;
+import javax.swing.JToggleButton;
+import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
@@ -29,6 +33,7 @@ import javax.swing.border.TitledBorder;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -39,6 +44,9 @@ import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.RenderingHints;
+import java.awt.event.ActionEvent;
+import java.awt.event.KeyEvent;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.IntConsumer;
 
@@ -51,6 +59,10 @@ import java.util.function.IntConsumer;
  * de Ataque e Item. La CPU no tiene acceso al sistema de cartas: su unica accion cada
  * turno es atacar con su Lider, resuelto como una fase de esquive en tiempo real al
  * estilo Undertale con {@link PanelEsquive}.
+ * Todo el juego se controla solo con el teclado: las flechas mueven el cursor de menu
+ * (arriba/abajo cambia de fila, izquierda/derecha cambia de control) y Enter activa
+ * el control marcado, con {@link MenuTeclado}. La pantalla de esquive es la unica
+ * excepcion: ahi las flechas mueven el corazon en tiempo real, como en Undertale.
  */
 public class CardBattleFrame extends JFrame {
     /**
@@ -97,6 +109,8 @@ public class CardBattleFrame extends JFrame {
     /** Contenedor con todas las pantallas del juego; solo una se ve a la vez, sin ventanas nuevas. */
     private final CardLayout cardLayout = new CardLayout();
     private final JPanel cardsRoot = new JPanel(cardLayout);
+    /** Cursor de menu que se controla solo con flechas y Enter; se reconstruye cada vez que cambia la pantalla. */
+    private final MenuTeclado menu = new MenuTeclado();
 
     private final BarraVida barraVidaCpu = new BarraVida("CPU");
     private final BarraVida barraVidaHuman = new BarraVida("TU");
@@ -104,6 +118,8 @@ public class CardBattleFrame extends JFrame {
     private final JPanel cpuBattlePanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 6));
     private final JPanel humanBattlePanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 6));
     private final JPanel handPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 6));
+    /** Boton del lider humano de la ultima vez que se refresco la interfaz; util para la navegacion de teclado. */
+    private JButton botonLiderHumano;
     /** Cuadro de dialogo con el ultimo evento importante, con efecto de maquina de escribir. */
     private final JLabel eventBanner = new JLabel(" ", SwingConstants.LEFT);
     /** Reloj que revela el texto del cuadro de dialogo caracter por caracter. */
@@ -127,8 +143,12 @@ public class CardBattleFrame extends JFrame {
     private final MusicPlayer musica = new MusicPlayer();
 
     // Pantalla de combo: se reutiliza para reforzar ataques y para preparar escudos antes de esquivar.
-    private final DefaultListModel<GameCard> comboModelo = new DefaultListModel<>();
-    private final JList<GameCard> comboLista = new JList<>(comboModelo);
+    // Cada carta se muestra como una casilla [ ]/[X] para poder marcarla solo con Enter.
+    private final JPanel comboListaPanel = new JPanel();
+    private final List<JToggleButton> comboToggles = new ArrayList<>();
+    private final List<GameCard> comboCartasMostradas = new ArrayList<>();
+    private final JButton btnComboConfirmar = new JButton("Confirmar combo");
+    private final JButton btnComboSaltar = new JButton("Sin combo");
     private final JLabel comboTitulo = new JLabel(" ", SwingConstants.CENTER);
     /** Que hacer con el total de combo elegido; se define cada vez que se abre la pantalla de combo. */
     private IntConsumer comboAlConfirmar;
@@ -137,16 +157,23 @@ public class CardBattleFrame extends JFrame {
     private final JPanel esquiveContenedor = new JPanel(new GridBagLayout());
 
     private final JLabel historialTexto = new JLabel(" ", SwingConstants.CENTER);
+    private final JButton btnHistorialAnterior = new JButton("< Anterior");
+    private final JButton btnHistorialSiguiente = new JButton("Siguiente >");
+    private final JButton btnHistorialVolver = new JButton("Volver");
 
     private final JComboBox<String> arbolFamilias = new JComboBox<>();
     private final JTextArea arbolTexto = new JTextArea();
+    private final JButton btnArbolVolver = new JButton("Volver");
 
     private final JSlider sliderVolumen = new JSlider(0, 100, 70);
     private final JCheckBox casillaSilencio = new JCheckBox("Silenciar musica");
     private final JLabel infoDificultadLabel = new JLabel(" ");
     private final JLabel avisoMusicaLabel = new JLabel(" ");
+    private final JButton btnConfiguracionVolver = new JButton("Volver");
 
     private final JLabel finTitulo = new JLabel(" ", SwingConstants.CENTER);
+    private final JButton btnFinJugarDeNuevo = new JButton("Jugar de nuevo");
+    private final JButton btnFinSalir = new JButton("Salir");
 
     /** Crea la ventana unica del juego y muestra primero la pantalla de dificultad. */
     public CardBattleFrame() {
@@ -179,7 +206,57 @@ public class CardBattleFrame extends JFrame {
             public void windowClosing(java.awt.event.WindowEvent e) {
                 musica.detener();
             }
+
+            @Override
+            public void windowOpened(java.awt.event.WindowEvent e) {
+                // Hasta que la ventana esta abierta y visible, requestFocusInWindow() puede fallar.
+                menu.aplicarResaltado();
+            }
         });
+    }
+
+    /** Instala flechas y Enter como controles de menu para una pantalla (todas menos la de esquive). */
+    private void activarNavegacionTeclado(JPanel pantalla) {
+        InputMap im = pantalla.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
+        ActionMap am = pantalla.getActionMap();
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0), "menuArriba");
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0), "menuAbajo");
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, 0), "menuIzquierda");
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, 0), "menuDerecha");
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "menuActivar");
+        am.put("menuArriba", accionMenu(() -> menu.moverFila(-1)));
+        am.put("menuAbajo", accionMenu(() -> menu.moverFila(1)));
+        am.put("menuIzquierda", accionMenu(() -> moverColumnaOCambiarValor(-1)));
+        am.put("menuDerecha", accionMenu(() -> moverColumnaOCambiarValor(1)));
+        am.put("menuActivar", accionMenu(menu::activar));
+    }
+
+    /** Envuelve una accion sin argumentos como {@link AbstractAction}, para usarla en un ActionMap. */
+    private AbstractAction accionMenu(Runnable accion) {
+        return new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                accion.run();
+            }
+        };
+    }
+
+    /**
+     * Izquierda/Derecha normalmente mueve el cursor entre controles de la fila actual.
+     * Si el control marcado es el combo de familias del arbol, en vez de eso cambia de familia
+     * (el combo no tiene otra pareja en su fila con la que navegar).
+     */
+    private void moverColumnaOCambiarValor(int delta) {
+        JComponent actual = menu.controlActual();
+        if (actual instanceof JComboBox) {
+            JComboBox<?> combo = (JComboBox<?>) actual;
+            int n = combo.getItemCount();
+            if (n > 0) {
+                combo.setSelectedIndex(Math.floorMod(combo.getSelectedIndex() + delta, n));
+            }
+        } else {
+            menu.moverColumna(delta);
+        }
     }
 
     // ---------------- PANTALLA: DIFICULTAD ----------------
@@ -211,7 +288,10 @@ public class CardBattleFrame extends JFrame {
             boton.addActionListener(e -> iniciarPartida(d));
             gbc.gridy++;
             panel.add(boton, gbc);
+            menu.agregarFila(boton);
         }
+        menu.aplicarResaltado();
+        activarNavegacionTeclado(panel);
         return panel;
     }
 
@@ -329,6 +409,7 @@ public class CardBattleFrame extends JFrame {
         sur.add(controlPanel, BorderLayout.SOUTH);
 
         raiz.add(sur, BorderLayout.SOUTH);
+        activarNavegacionTeclado(raiz);
         return raiz;
     }
 
@@ -426,7 +507,8 @@ public class CardBattleFrame extends JFrame {
         cpuBattlePanel.repaint();
 
         humanBattlePanel.removeAll();
-        humanBattlePanel.add(crearBotonLider(human, true));
+        botonLiderHumano = crearBotonLider(human, true);
+        humanBattlePanel.add(botonLiderHumano);
         for (GameCard c : human.getBattleArea()) {
             humanBattlePanel.add(crearBotonCartaAreaBatalla(c, true));
         }
@@ -453,6 +535,31 @@ public class CardBattleFrame extends JFrame {
                 && human.getEnergyAvailable() >= human.getLeader().getBoostCost();
         btnBoost.setEnabled(!gameOver && puedePotenciar);
         btnEndTurn.setEnabled(!gameOver);
+        construirMenuJuego();
+    }
+
+    /**
+     * Reconstruye el cursor de menu del tablero con los controles visibles en este momento:
+     * categoria, cartas de la mano (si hay), tu lider y los botones de control.
+     * Se llama cada vez que {@link #refreshUI()} cambia lo que hay en pantalla.
+     */
+    private void construirMenuJuego() {
+        menu.limpiar();
+        menu.agregarFila(btnMenuAtaque, btnMenuItem);
+        List<JComponent> filaMano = new ArrayList<>();
+        for (Component c : handPanel.getComponents()) {
+            if (c instanceof JComponent) {
+                filaMano.add((JComponent) c);
+            }
+        }
+        if (!filaMano.isEmpty()) {
+            menu.agregarFila(filaMano.toArray(new JComponent[0]));
+        }
+        if (botonLiderHumano != null) {
+            menu.agregarFila(botonLiderHumano);
+        }
+        menu.agregarFila(btnBoost, btnEndTurn, btnHistorial, btnArbol, btnConfiguracion);
+        menu.aplicarResaltado();
     }
 
     /**
@@ -726,33 +833,29 @@ public class CardBattleFrame extends JFrame {
         comboTitulo.setFont(TemaUndertale.FUENTE_MENU);
         panel.add(comboTitulo, BorderLayout.NORTH);
 
-        comboLista.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
-        comboLista.setBackground(TemaUndertale.FONDO);
-        comboLista.setForeground(TemaUndertale.VERDE);
-        comboLista.setCellRenderer((list, value, index, isSelected, cellHasFocus) -> {
-            JLabel lbl = new JLabel("  " + value.getName() + "   -   Combo +" + value.getComboPower());
-            lbl.setOpaque(true);
-            lbl.setFont(TemaUndertale.FUENTE_MENU);
-            lbl.setBackground(isSelected ? TemaUndertale.VERDE_OSCURO : TemaUndertale.FONDO);
-            lbl.setForeground(isSelected ? TemaUndertale.VERDE_BRILLANTE : TemaUndertale.VERDE);
-            return lbl;
-        });
-        JScrollPane scroll = new JScrollPane(comboLista);
+        // Cada carta es una casilla [ ]/[X]: se marca solo con Enter, sin necesitar clic ni Ctrl/Shift.
+        comboListaPanel.setLayout(new BoxLayout(comboListaPanel, BoxLayout.Y_AXIS));
+        TemaUndertale.fondoNegro(comboListaPanel);
+        JScrollPane scroll = new JScrollPane(comboListaPanel);
         scroll.setBorder(BorderFactory.createLineBorder(TemaUndertale.VERDE_OSCURO, 2));
         panel.add(scroll, BorderLayout.CENTER);
 
         JPanel botones = new JPanel(new FlowLayout(FlowLayout.CENTER, 16, 10));
         TemaUndertale.fondoNegro(botones);
-        JButton btnConfirmar = new JButton("Confirmar combo");
-        JButton btnSaltar = new JButton("Sin combo");
-        TemaUndertale.estilizar(btnConfirmar);
-        TemaUndertale.estilizar(btnSaltar);
-        btnConfirmar.addActionListener(e -> confirmarCombo(true));
-        btnSaltar.addActionListener(e -> confirmarCombo(false));
-        botones.add(btnConfirmar);
-        botones.add(btnSaltar);
+        TemaUndertale.estilizar(btnComboConfirmar);
+        TemaUndertale.estilizar(btnComboSaltar);
+        btnComboConfirmar.addActionListener(e -> confirmarCombo(true));
+        btnComboSaltar.addActionListener(e -> confirmarCombo(false));
+        botones.add(btnComboConfirmar);
+        botones.add(btnComboSaltar);
         panel.add(botones, BorderLayout.SOUTH);
+        activarNavegacionTeclado(panel);
         return panel;
+    }
+
+    /** Actualiza el texto de una casilla de combo segun si esta marcada o no. */
+    private void actualizarTextoToggleCombo(JToggleButton toggle, GameCard c, boolean marcado) {
+        toggle.setText((marcado ? "[X] " : "[ ] ") + c.getName() + "   -   Combo +" + c.getComboPower());
     }
 
     /**
@@ -767,24 +870,49 @@ public class CardBattleFrame extends JFrame {
             alConfirmar.accept(0);
             return;
         }
-        comboModelo.clear();
+        comboListaPanel.removeAll();
+        comboToggles.clear();
+        comboCartasMostradas.clear();
         for (GameCard c : human.getHand()) {
-            comboModelo.addElement(c);
+            JToggleButton toggle = new JToggleButton();
+            TemaUndertale.estilizar(toggle);
+            toggle.setAlignmentX(Component.LEFT_ALIGNMENT);
+            toggle.setHorizontalAlignment(SwingConstants.LEFT);
+            actualizarTextoToggleCombo(toggle, c, false);
+            toggle.addActionListener(e -> actualizarTextoToggleCombo(toggle, c, toggle.isSelected()));
+            comboListaPanel.add(toggle);
+            comboToggles.add(toggle);
+            comboCartasMostradas.add(c);
         }
-        comboLista.clearSelection();
-        comboTitulo.setText("<html><center>¿Quemar cartas de tu mano en combo para<br>" + contexto + "?</center></html>");
+        comboListaPanel.revalidate();
+        comboListaPanel.repaint();
+        comboTitulo.setText("<html><center>¿Quemar cartas de tu mano en combo para<br>" + contexto
+                + "?<br>(Arriba/Abajo elige carta, Enter la marca)</center></html>");
         comboAlConfirmar = alConfirmar;
         cardLayout.show(cardsRoot, PANTALLA_COMBO);
+        construirMenuCombo();
     }
 
-    /** Suma el poder de combo de las cartas elegidas (si se confirma), las quema y avisa al callback pendiente. */
+    /** Reconstruye el cursor de menu de la pantalla de combo: una fila por carta y los botones al final. */
+    private void construirMenuCombo() {
+        menu.limpiar();
+        for (JToggleButton toggle : comboToggles) {
+            menu.agregarFila(toggle);
+        }
+        menu.agregarFila(btnComboConfirmar, btnComboSaltar);
+        menu.aplicarResaltado();
+    }
+
+    /** Suma el poder de combo de las cartas marcadas (si se confirma), las quema y avisa al callback pendiente. */
     private void confirmarCombo(boolean usarSeleccion) {
         int total = 0;
         if (usarSeleccion) {
-            List<GameCard> seleccion = comboLista.getSelectedValuesList();
-            for (GameCard c : seleccion) {
-                total += c.getComboPower();
-                human.getHand().remover(c);
+            for (int i = 0; i < comboToggles.size(); i++) {
+                if (comboToggles.get(i).isSelected()) {
+                    GameCard c = comboCartasMostradas.get(i);
+                    total += c.getComboPower();
+                    human.getHand().remover(c);
+                }
             }
         }
         IntConsumer callback = comboAlConfirmar;
@@ -795,6 +923,7 @@ public class CardBattleFrame extends JFrame {
     }
 
     // ---------------- PANTALLA: ESQUIVE ----------------
+
 
     /** Contenedor vacio donde se inserta el {@link PanelEsquive} de cada ataque del jefe. */
     private JPanel crearPantallaEsquive() {
@@ -838,25 +967,23 @@ public class CardBattleFrame extends JFrame {
 
         JPanel botones = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 8));
         TemaUndertale.fondoNegro(botones);
-        JButton anterior = new JButton("< Anterior");
-        JButton siguiente = new JButton("Siguiente >");
-        JButton volver = new JButton("Volver");
-        for (JButton b : new JButton[]{anterior, siguiente, volver}) {
+        for (JButton b : new JButton[]{btnHistorialAnterior, btnHistorialSiguiente, btnHistorialVolver}) {
             TemaUndertale.estilizar(b);
         }
-        anterior.addActionListener(e -> {
+        btnHistorialAnterior.addActionListener(e -> {
             historial.irAnterior();
             actualizarHistorialTexto();
         });
-        siguiente.addActionListener(e -> {
+        btnHistorialSiguiente.addActionListener(e -> {
             historial.irSiguiente();
             actualizarHistorialTexto();
         });
-        volver.addActionListener(e -> cardLayout.show(cardsRoot, PANTALLA_JUEGO));
-        botones.add(anterior);
-        botones.add(siguiente);
-        botones.add(volver);
+        btnHistorialVolver.addActionListener(e -> volverAJuego());
+        botones.add(btnHistorialAnterior);
+        botones.add(btnHistorialSiguiente);
+        botones.add(btnHistorialVolver);
         panel.add(botones, BorderLayout.SOUTH);
+        activarNavegacionTeclado(panel);
         return panel;
     }
 
@@ -872,6 +999,15 @@ public class CardBattleFrame extends JFrame {
             actualizarHistorialTexto();
         }
         cardLayout.show(cardsRoot, PANTALLA_HISTORIAL);
+        menu.limpiar();
+        menu.agregarFila(btnHistorialAnterior, btnHistorialSiguiente, btnHistorialVolver);
+        menu.aplicarResaltado();
+    }
+
+    /** Vuelve a la pantalla del tablero y refresca la interfaz (incluido el cursor de menu). */
+    private void volverAJuego() {
+        cardLayout.show(cardsRoot, PANTALLA_JUEGO);
+        refreshUI();
     }
 
     // ---------------- PANTALLA: ARBOL DE EVOLUCION ----------------
@@ -892,6 +1028,9 @@ public class CardBattleFrame extends JFrame {
         arbolFamilias.addActionListener(e -> actualizarArbolTexto());
         norte.add(arbolFamilias);
         panel.add(norte, BorderLayout.NORTH);
+        // El combo cambia de familia solo con Izquierda/Derecha; Arriba/Abajo debe pasar a la fila de "Volver".
+        arbolFamilias.getInputMap(JComponent.WHEN_FOCUSED).put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0), "none");
+        arbolFamilias.getInputMap(JComponent.WHEN_FOCUSED).put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0), "none");
 
         arbolTexto.setEditable(false);
         arbolTexto.setFont(new Font("Consolas", Font.PLAIN, 13));
@@ -901,13 +1040,13 @@ public class CardBattleFrame extends JFrame {
         scroll.setBorder(BorderFactory.createLineBorder(TemaUndertale.VERDE_OSCURO, 2));
         panel.add(scroll, BorderLayout.CENTER);
 
-        JButton volver = new JButton("Volver");
-        TemaUndertale.estilizar(volver);
-        volver.addActionListener(e -> cardLayout.show(cardsRoot, PANTALLA_JUEGO));
+        TemaUndertale.estilizar(btnArbolVolver);
+        btnArbolVolver.addActionListener(e -> volverAJuego());
         JPanel sur = new JPanel(new FlowLayout(FlowLayout.CENTER));
         TemaUndertale.fondoNegro(sur);
-        sur.add(volver);
+        sur.add(btnArbolVolver);
         panel.add(sur, BorderLayout.SOUTH);
+        activarNavegacionTeclado(panel);
         return panel;
     }
 
@@ -936,6 +1075,10 @@ public class CardBattleFrame extends JFrame {
         }
         actualizarArbolTexto();
         cardLayout.show(cardsRoot, PANTALLA_ARBOL);
+        menu.limpiar();
+        menu.agregarFila(arbolFamilias);
+        menu.agregarFila(btnArbolVolver);
+        menu.aplicarResaltado();
     }
 
     // ---------------- PANTALLA: CONFIGURACION ----------------
@@ -959,6 +1102,9 @@ public class CardBattleFrame extends JFrame {
         sliderVolumen.setForeground(TemaUndertale.VERDE);
         sliderVolumen.addChangeListener(e -> musica.setVolumen(sliderVolumen.getValue() / 100f));
         panel.add(sliderVolumen);
+        // El slider ajusta el volumen solo con Izquierda/Derecha; Arriba/Abajo pasa a la siguiente fila.
+        sliderVolumen.getInputMap(JComponent.WHEN_FOCUSED).put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0), "none");
+        sliderVolumen.getInputMap(JComponent.WHEN_FOCUSED).put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0), "none");
 
         TemaUndertale.fondoNegro(casillaSilencio);
         casillaSilencio.setForeground(TemaUndertale.VERDE);
@@ -968,19 +1114,24 @@ public class CardBattleFrame extends JFrame {
         TemaUndertale.estilizar(avisoMusicaLabel);
         panel.add(avisoMusicaLabel);
 
-        JButton volver = new JButton("Volver");
-        TemaUndertale.estilizar(volver);
-        volver.addActionListener(e -> cardLayout.show(cardsRoot, PANTALLA_JUEGO));
+        TemaUndertale.estilizar(btnConfiguracionVolver);
+        btnConfiguracionVolver.addActionListener(e -> volverAJuego());
         JPanel sur = new JPanel(new FlowLayout(FlowLayout.CENTER));
         TemaUndertale.fondoNegro(sur);
-        sur.add(volver);
+        sur.add(btnConfiguracionVolver);
         panel.add(sur);
+        activarNavegacionTeclado(panel);
         return panel;
     }
 
     /** Abre la pantalla de configuracion (dificultad, volumen y silencio de musica). */
     private void mostrarConfiguracion() {
         cardLayout.show(cardsRoot, PANTALLA_CONFIGURACION);
+        menu.limpiar();
+        menu.agregarFila(sliderVolumen);
+        menu.agregarFila(casillaSilencio);
+        menu.agregarFila(btnConfiguracionVolver);
+        menu.aplicarResaltado();
     }
 
     // ---------------- PANTALLA: FIN DE PARTIDA ----------------
@@ -994,17 +1145,16 @@ public class CardBattleFrame extends JFrame {
         TemaUndertale.estilizar(finTitulo);
         panel.add(finTitulo, BorderLayout.CENTER);
 
-        JButton jugarDeNuevo = new JButton("Jugar de nuevo");
-        JButton salir = new JButton("Salir");
-        TemaUndertale.estilizar(jugarDeNuevo);
-        TemaUndertale.estilizar(salir);
-        jugarDeNuevo.addActionListener(e -> reiniciarPartida());
-        salir.addActionListener(e -> dispose());
+        TemaUndertale.estilizar(btnFinJugarDeNuevo);
+        TemaUndertale.estilizar(btnFinSalir);
+        btnFinJugarDeNuevo.addActionListener(e -> reiniciarPartida());
+        btnFinSalir.addActionListener(e -> dispose());
         JPanel botones = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
         TemaUndertale.fondoNegro(botones);
-        botones.add(jugarDeNuevo);
-        botones.add(salir);
+        botones.add(btnFinJugarDeNuevo);
+        botones.add(btnFinSalir);
         panel.add(botones, BorderLayout.SOUTH);
+        activarNavegacionTeclado(panel);
         return panel;
     }
 
@@ -1023,6 +1173,9 @@ public class CardBattleFrame extends JFrame {
         refreshUI();
         finTitulo.setText(ganador.equals("Tu") ? "¡GANASTE!" : "PERDISTE. La CPU gana.");
         cardLayout.show(cardsRoot, PANTALLA_FIN);
+        menu.limpiar();
+        menu.agregarFila(btnFinJugarDeNuevo, btnFinSalir);
+        menu.aplicarResaltado();
     }
 
     /**
