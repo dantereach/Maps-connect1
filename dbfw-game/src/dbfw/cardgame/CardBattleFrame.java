@@ -773,14 +773,14 @@ public class CardBattleFrame extends JFrame {
         appendLog("\n¡El Lider CPU ataca! Prepara tu corazon para esquivar...");
         int danoPorGolpe = cpu.getLeader().getDanoAtaque(0);
         boolean fasesDificiles = cpu.getLeader().isTransformed();
-        int duracionBase = fasesDificiles ? 8000 : 6000;
         int spawnMinBase = fasesDificiles ? 350 : 500;
         int spawnMaxBase = fasesDificiles ? 700 : 1000;
         double velMinBase = fasesDificiles ? 2.5 : 1.8;
         double velMaxBase = fasesDificiles ? 4.5 : 3.2;
 
-        // La dificultad cambia la duracion, la frecuencia y la velocidad de las balas.
-        int duracionMs = (int) Math.round(duracionBase * dificultad.getMultiplicadorDuracion());
+        // La duracion es fija (15 seg) sin importar la dificultad; esta solo cambia la
+        // frecuencia y la velocidad de las balas.
+        int duracionMs = 15000;
         int spawnMinMs = Math.max(120, (int) Math.round(spawnMinBase * dificultad.getMultiplicadorSpawn()));
         int spawnMaxMs = Math.max(spawnMinMs + 80, (int) Math.round(spawnMaxBase * dificultad.getMultiplicadorSpawn()));
         double velMin = velMinBase * dificultad.getMultiplicadorVelocidad();
