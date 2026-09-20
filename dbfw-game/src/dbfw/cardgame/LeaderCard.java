@@ -34,9 +34,12 @@ public class LeaderCard {
     private final int boostCost;
     /** True si ya se uso potenciar este turno. */
     private boolean boostUsedThisTurn = false;
+    /** Vida en la que este lider se transforma (por defecto 4, pensado para 7 de vida). */
+    private final int umbralTransformacion;
 
     /**
-     * Crea una carta de Lider con sus datos y habilidades.
+     * Crea una carta de Lider con sus datos y habilidades, con el umbral de
+     * transformacion por defecto (4 de vida).
      *
      * @param name               nombre del lider
      * @param basePower          poder base normal
@@ -51,6 +54,19 @@ public class LeaderCard {
     public LeaderCard(String name, int basePower, int transformedPower,
                        boolean hasHandBonus, int handBonusThreshold, int handBonusPower,
                        boolean canBoost, int boostAmount, int boostCost) {
+        this(name, basePower, transformedPower, hasHandBonus, handBonusThreshold, handBonusPower,
+                canBoost, boostAmount, boostCost, 4);
+    }
+
+    /**
+     * Crea una carta de Lider con un umbral de transformacion especifico,
+     * util para lideres con una vida maxima distinta a 7.
+     *
+     * @param umbralTransformacion vida en la que este lider se transforma
+     */
+    public LeaderCard(String name, int basePower, int transformedPower,
+                       boolean hasHandBonus, int handBonusThreshold, int handBonusPower,
+                       boolean canBoost, int boostAmount, int boostCost, int umbralTransformacion) {
         this.name = name;
         this.basePower = basePower;
         this.transformedPower = transformedPower;
@@ -60,6 +76,7 @@ public class LeaderCard {
         this.canBoost = canBoost;
         this.boostAmount = boostAmount;
         this.boostCost = boostCost;
+        this.umbralTransformacion = umbralTransformacion;
     }
 
     /** Lider azul del jugador con todas sus habilidades especiales. */
@@ -67,9 +84,16 @@ public class LeaderCard {
         return new LeaderCard("Lider Azul", 15000, 20000, true, 7, 35000, true, 1, 1);
     }
 
-    /** Lider generico y simple de la CPU, sin habilidades especiales. */
-    public static LeaderCard crearLiderCpu() {
-        return new LeaderCard("Lider CPU", 15000, 15000, false, 0, 0, false, 0, 0);
+    /**
+     * Lider generico de la CPU, sin habilidades especiales.
+     * Se transforma cuando le queda mas o menos el mismo porcentaje de vida
+     * que al lider del jugador (vida maxima entre 7).
+     *
+     * @param vidaMaxima vida maxima con la que arranca la CPU
+     */
+    public static LeaderCard crearLiderCpu(int vidaMaxima) {
+        int umbral = Math.max(1, Math.round(vidaMaxima * 4f / 7f));
+        return new LeaderCard("Lider CPU", 15000, 15000, false, 0, 0, false, 0, 0, umbral);
     }
 
     /** @return el nombre visible del lider. */
@@ -122,9 +146,9 @@ public class LeaderCard {
         return transformed ? transformedPower : basePower;
     }
 
-    /** Transforma al lider si la vida llega a 4 o menos. */
+    /** Transforma al lider si la vida llega a su umbral de transformacion o menos. */
     public void checkTransform(int vidaActual) {
-        if (!transformed && vidaActual <= 4) {
+        if (!transformed && vidaActual <= umbralTransformacion) {
             transformed = true;
         }
     }

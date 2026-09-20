@@ -32,8 +32,10 @@ public class CardPlayer {
     private final ColaPrioridad<GameCard> efectosPendientes = new ColaPrioridad<>();
     /** Generador aleatorio para barajar. */
     private final Random random = new Random();
+    /** Vida maxima con la que empezo este jugador (para dibujar su barra de HP). */
+    private final int vidaMaxima;
     /** Vida restante. */
-    private int life = 7;
+    private int life;
     /** Energia disponible este turno. */
     private int energyAvailable = 0;
     /** Energia maxima acumulada, hasta 10. */
@@ -44,14 +46,27 @@ public class CardPlayer {
     private int bonusAtaquePendiente = 0;
 
     /**
-     * Crea un jugador con su lider.
+     * Crea un jugador con su lider y 7 de vida inicial.
      *
      * @param name   nombre visible del jugador
      * @param leader lider del jugador
      */
     public CardPlayer(String name, LeaderCard leader) {
+        this(name, leader, 7);
+    }
+
+    /**
+     * Crea un jugador con su lider y una vida inicial especifica.
+     *
+     * @param name        nombre visible del jugador
+     * @param leader      lider del jugador
+     * @param vidaInicial vida con la que empieza este jugador
+     */
+    public CardPlayer(String name, LeaderCard leader, int vidaInicial) {
         this.name = name;
         this.leader = leader;
+        this.vidaMaxima = vidaInicial;
+        this.life = vidaInicial;
     }
 
     /** @return el nombre visible del jugador. */
@@ -96,6 +111,11 @@ public class CardPlayer {
     /** @return la vida restante del jugador. */
     public int getLife() {
         return life;
+    }
+
+    /** @return la vida maxima con la que empezo este jugador. */
+    public int getVidaMaxima() {
+        return vidaMaxima;
     }
 
     /** Actualiza la vida sin bajar de 0 y revisa la transformacion del lider. */
