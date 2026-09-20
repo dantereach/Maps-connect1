@@ -838,6 +838,12 @@ public class CardBattleFrame extends JFrame {
         TemaUndertale.fondoNegro(comboListaPanel);
         JScrollPane scroll = new JScrollPane(comboListaPanel);
         scroll.setBorder(BorderFactory.createLineBorder(TemaUndertale.VERDE_OSCURO, 2));
+        // El JScrollPane captura las flechas para desplazarse el mismo; se desactiva para
+        // que el cursor de menu (flechas/Enter) las controle en su lugar.
+        for (int tecla : new int[]{KeyEvent.VK_UP, KeyEvent.VK_DOWN, KeyEvent.VK_LEFT, KeyEvent.VK_RIGHT}) {
+            scroll.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT)
+                    .put(KeyStroke.getKeyStroke(tecla, 0), "none");
+        }
         panel.add(scroll, BorderLayout.CENTER);
 
         JPanel botones = new JPanel(new FlowLayout(FlowLayout.CENTER, 16, 10));

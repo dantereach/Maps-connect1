@@ -4,6 +4,7 @@ import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
 import javax.swing.JComponent;
 import javax.swing.border.Border;
+import java.awt.Rectangle;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -95,6 +96,8 @@ public class MenuTeclado {
                 BorderFactory.createLineBorder(TemaUndertale.VERDE_BRILLANTE, 3),
                 bordesOriginales.get(actual)));
         actual.requestFocusInWindow();
+        // Si el control esta dentro de un JScrollPane (como la lista de combo), lo trae a la vista.
+        actual.scrollRectToVisible(new Rectangle(0, 0, actual.getWidth(), actual.getHeight()));
     }
 
     /** Regresa el control actual a su borde original antes de mover el cursor a otro lado. */
