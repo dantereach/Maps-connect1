@@ -18,7 +18,7 @@ import javax.sound.sampled.UnsupportedAudioFileException;
 public final class MusicPlayer {
 
     /** Ruta por defecto de la cancion principal. */
-    public static final String RUTA_TEMA_POR_DEFECTO = "music/theme.mp3";
+    public static final String RUTA_TEMA_POR_DEFECTO = "music/theme.wav";
 
     private Clip clip;
     private boolean silenciado = false;
