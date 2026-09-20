@@ -3,11 +3,13 @@ package dbfw.cardgame;
 import dbfw.cardgame.arbol.ArbolEvolucion;
 import dbfw.cardgame.arbol.ArbolesEvolucion;
 import dbfw.cardgame.audio.MusicPlayer;
+import dbfw.cardgame.audio.SoundEffectPlayer;
 import dbfw.cardgame.estructuras.ListaCircular;
 import dbfw.cardgame.estructuras.ListaDoble;
 import dbfw.cardgame.estructuras.ListaSimple;
 import dbfw.cardgame.excepciones.ColaPrioridadVaciaException;
 import dbfw.cardgame.excepciones.MazoVacioException;
+import dbfw.cardgame.undertale.PanelCorazonRoto;
 import dbfw.cardgame.undertale.PanelEsquive;
 import javax.swing.AbstractAction;
 import javax.swing.ActionMap;
@@ -84,6 +86,7 @@ public class CardBattleFrame extends JFrame {
     private static final String PANTALLA_ARBOL = "arbol";
     private static final String PANTALLA_CONFIGURACION = "configuracion";
     private static final String PANTALLA_FIN = "fin";
+    private static final String PANTALLA_GAMEOVER = "gameover";
 
     private CardPlayer human;
     private CardPlayer cpu;
@@ -155,6 +158,8 @@ public class CardBattleFrame extends JFrame {
 
     /** Contenedor donde se inserta un {@link PanelEsquive} nuevo cada vez que ataca el Lider CPU. */
     private final JPanel esquiveContenedor = new JPanel(new GridBagLayout());
+    /** Contenedor donde se inserta la animacion de Game Over (corazon rompiendose) al perder. */
+    private final JPanel gameOverContenedor = new JPanel(new GridBagLayout());
 
     private final JLabel historialTexto = new JLabel(" ", SwingConstants.CENTER);
     private final JButton btnHistorialAnterior = new JButton("< Anterior");
@@ -185,6 +190,7 @@ public class CardBattleFrame extends JFrame {
         cardsRoot.add(crearPantallaDificultad(), PANTALLA_DIFICULTAD);
         cardsRoot.add(crearPantallaCombo(), PANTALLA_COMBO);
         cardsRoot.add(crearPantallaEsquive(), PANTALLA_ESQUIVE);
+        cardsRoot.add(crearPantallaGameOver(), PANTALLA_GAMEOVER);
         cardsRoot.add(crearPantallaHistorial(), PANTALLA_HISTORIAL);
         cardsRoot.add(crearPantallaArbol(), PANTALLA_ARBOL);
         cardsRoot.add(crearPantallaConfiguracion(), PANTALLA_CONFIGURACION);
@@ -953,6 +959,32 @@ public class CardBattleFrame extends JFrame {
         SwingUtilities.invokeLater(() -> panel.iniciar(() -> alTerminar.accept(panel.getGolpesRecibidos())));
     }
 
+    // ---------------- PANTALLA: GAME OVER ----------------
+
+    /** Contenedor vacio donde se inserta la animacion del corazon roto cuando el jugador pierde. */
+    private JPanel crearPantallaGameOver() {
+        gameOverContenedor.setOpaque(true);
+        gameOverContenedor.setBackground(Color.BLACK);
+        return gameOverContenedor;
+    }
+
+    /**
+     * Muestra la pantalla en negro con el corazon rompiendose en 2 y luego en varios fragmentos,
+     * detiene la musica de fondo y reproduce solo el efecto de Game Over.
+     * Al terminar la animacion, pasa a la pantalla de fin normal.
+     */
+    private void mostrarGameOver(Runnable alTerminar) {
+        musica.detener();
+        SoundEffectPlayer.reproducir("sfx/gameover.wav");
+        gameOverContenedor.removeAll();
+        PanelCorazonRoto panel = new PanelCorazonRoto();
+        gameOverContenedor.add(panel, new GridBagConstraints());
+        gameOverContenedor.revalidate();
+        gameOverContenedor.repaint();
+        cardLayout.show(cardsRoot, PANTALLA_GAMEOVER);
+        panel.iniciar(alTerminar);
+    }
+
     // ---------------- PANTALLA: HISTORIAL ----------------
 
     private JPanel crearPantallaHistorial() {
@@ -1169,13 +1201,23 @@ public class CardBattleFrame extends JFrame {
         SwingUtilities.invokeLater(() -> new CardBattleFrame().setVisible(true));
     }
 
-    /** Marca la partida como terminada, registra el resultado en el log y muestra la pantalla de fin. */
+    /** Marca la partida como terminada, registra el resultado y muestra Game Over o victoria segun quien pierda. */
     private void declararDerrota(CardPlayer perdedor) {
         gameOver = true;
         String ganador = perdedor == human ? "CPU" : "Tu";
         appendLog("\n*** " + perdedor.getName() + " ha sido derrotado. Gana " + ganador + "! ***");
         refreshUI();
-        finTitulo.setText(ganador.equals("Tu") ? "¡GANASTE!" : "PERDISTE. La CPU gana.");
+        if (perdedor == human) {
+            // El jugador pierde: pantalla en negro con el corazon rompiendose y solo el sonido de Game Over.
+            mostrarGameOver(() -> mostrarPantallaFin("PERDISTE. La CPU gana."));
+        } else {
+            mostrarPantallaFin("¡GANASTE!");
+        }
+    }
+
+    /** Muestra la pantalla final con el resultado y los botones de Jugar de nuevo / Salir. */
+    private void mostrarPantallaFin(String texto) {
+        finTitulo.setText(texto);
         cardLayout.show(cardsRoot, PANTALLA_FIN);
         menu.limpiar();
         menu.agregarFila(btnFinJugarDeNuevo, btnFinSalir);
