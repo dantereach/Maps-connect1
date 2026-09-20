@@ -397,7 +397,7 @@ public class PanelEsquive extends JPanel {
         g.fill(formaCorazon(hx, hy, RADIO_CORAZON));
 
         g.setColor(TemaUndertale.VERDE);
-        g.setFont(new Font("Consolas", Font.BOLD, 13));
+        g.setFont(new Font(TemaUndertale.FAMILIA_FUENTE, Font.BOLD, 13));
         int segundosRestantes = Math.max(0, (int) Math.ceil((duracionMs - tiempoTranscurridoMs) / 1000.0));
         g.drawString("Tiempo: " + segundosRestantes + "s", 8, ALTO_TOTAL - 26);
         g.drawString("Golpes recibidos: " + golpesRecibidos, 8, ALTO_TOTAL - 10);
@@ -524,7 +524,7 @@ public class PanelEsquive extends JPanel {
         g.drawLine((int) cx, (int) (cy + 18), (int) (cx - 10), (int) (cy + 34));
         g.drawLine((int) cx, (int) (cy + 18), (int) (cx + 10), (int) (cy + 34));
 
-        g.setFont(new Font("Consolas", Font.BOLD, 12));
+        g.setFont(new Font(TemaUndertale.FAMILIA_FUENTE, Font.BOLD, 12));
         g.setColor(TemaUndertale.VERDE_BRILLANTE);
         g.drawString(fraseDelJefe(), 10, 16);
 

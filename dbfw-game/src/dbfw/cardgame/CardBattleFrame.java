@@ -11,6 +11,7 @@ import dbfw.cardgame.excepciones.ColaPrioridadVaciaException;
 import dbfw.cardgame.excepciones.MazoVacioException;
 import dbfw.cardgame.undertale.PanelCorazonRoto;
 import dbfw.cardgame.undertale.PanelEsquive;
+import dbfw.cardgame.undertale.PanelVictoria;
 import javax.swing.AbstractAction;
 import javax.swing.ActionMap;
 import javax.swing.BorderFactory;
@@ -87,6 +88,7 @@ public class CardBattleFrame extends JFrame {
     private static final String PANTALLA_CONFIGURACION = "configuracion";
     private static final String PANTALLA_FIN = "fin";
     private static final String PANTALLA_GAMEOVER = "gameover";
+    private static final String PANTALLA_VICTORIA = "victoria";
 
     private CardPlayer human;
     private CardPlayer cpu;
@@ -160,6 +162,8 @@ public class CardBattleFrame extends JFrame {
     private final JPanel esquiveContenedor = new JPanel(new GridBagLayout());
     /** Contenedor donde se inserta la animacion de Game Over (corazon rompiendose) al perder. */
     private final JPanel gameOverContenedor = new JPanel(new GridBagLayout());
+    /** Contenedor donde se inserta la animacion de victoria (corazon brillando) al ganar. */
+    private final JPanel victoriaContenedor = new JPanel(new GridBagLayout());
 
     private final JLabel historialTexto = new JLabel(" ", SwingConstants.CENTER);
     private final JButton btnHistorialAnterior = new JButton("< Anterior");
@@ -191,6 +195,7 @@ public class CardBattleFrame extends JFrame {
         cardsRoot.add(crearPantallaCombo(), PANTALLA_COMBO);
         cardsRoot.add(crearPantallaEsquive(), PANTALLA_ESQUIVE);
         cardsRoot.add(crearPantallaGameOver(), PANTALLA_GAMEOVER);
+        cardsRoot.add(crearPantallaVictoria(), PANTALLA_VICTORIA);
         cardsRoot.add(crearPantallaHistorial(), PANTALLA_HISTORIAL);
         cardsRoot.add(crearPantallaArbol(), PANTALLA_ARBOL);
         cardsRoot.add(crearPantallaConfiguracion(), PANTALLA_CONFIGURACION);
@@ -276,7 +281,7 @@ public class CardBattleFrame extends JFrame {
         gbc.insets = new Insets(10, 10, 10, 10);
 
         JLabel titulo = new JLabel("TECMILENIO HEROES");
-        titulo.setFont(new Font("Consolas", Font.BOLD, 30));
+        titulo.setFont(new Font(TemaUndertale.FAMILIA_FUENTE, Font.BOLD, 30));
         titulo.setForeground(TemaUndertale.VERDE_BRILLANTE);
         gbc.gridy = 0;
         panel.add(titulo, gbc);
@@ -339,7 +344,7 @@ public class CardBattleFrame extends JFrame {
         eventBanner.setOpaque(true);
         eventBanner.setBackground(new Color(0, 0, 0, 210));
         eventBanner.setForeground(TemaUndertale.VERDE_BRILLANTE);
-        eventBanner.setFont(new Font("Consolas", Font.BOLD, 14));
+        eventBanner.setFont(new Font(TemaUndertale.FAMILIA_FUENTE, Font.BOLD, 14));
         eventBanner.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(TemaUndertale.VERDE_OSCURO, 2),
                 BorderFactory.createEmptyBorder(6, 10, 6, 10)));
@@ -360,15 +365,7 @@ public class CardBattleFrame extends JFrame {
         filaCpu.add(infoCpuWrap, BorderLayout.NORTH);
         filaCpu.add(cpuBattlePanel, BorderLayout.CENTER);
 
-        JPanel norte = new JPanel(new BorderLayout());
-        norte.setOpaque(false);
-        JPanel bannerWrap = new JPanel(new BorderLayout());
-        bannerWrap.setOpaque(false);
-        bannerWrap.setBorder(BorderFactory.createEmptyBorder(4, 10, 0, 10));
-        bannerWrap.add(eventBanner, BorderLayout.CENTER);
-        norte.add(bannerWrap, BorderLayout.NORTH);
-        norte.add(filaCpu, BorderLayout.CENTER);
-        board.add(norte, BorderLayout.NORTH);
+        board.add(filaCpu, BorderLayout.NORTH);
 
         JPanel filaHumano = new JPanel(new BorderLayout());
         filaHumano.setOpaque(false);
@@ -414,7 +411,18 @@ public class CardBattleFrame extends JFrame {
         }
         sur.add(controlPanel, BorderLayout.SOUTH);
 
-        raiz.add(sur, BorderLayout.SOUTH);
+        // El cuadro de dialogo va justo arriba del menu Ataque/Item, como el cuadro de texto de Undertale.
+        JPanel bannerWrap = new JPanel(new BorderLayout());
+        bannerWrap.setOpaque(false);
+        bannerWrap.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
+        bannerWrap.add(eventBanner, BorderLayout.CENTER);
+
+        JPanel surConTexto = new JPanel(new BorderLayout());
+        TemaUndertale.fondoNegro(surConTexto);
+        surConTexto.add(bannerWrap, BorderLayout.NORTH);
+        surConTexto.add(sur, BorderLayout.CENTER);
+
+        raiz.add(surConTexto, BorderLayout.SOUTH);
         activarNavegacionTeclado(raiz);
         return raiz;
     }
@@ -985,6 +993,29 @@ public class CardBattleFrame extends JFrame {
         panel.iniciar(alTerminar);
     }
 
+    // ---------------- PANTALLA: VICTORIA ----------------
+
+    /** Contenedor vacio donde se inserta la animacion del corazon brillante cuando el jugador gana. */
+    private JPanel crearPantallaVictoria() {
+        victoriaContenedor.setOpaque(true);
+        victoriaContenedor.setBackground(Color.BLACK);
+        return victoriaContenedor;
+    }
+
+    /**
+     * Muestra la pantalla con el corazon del jugador brillando y estrellas girando a su alrededor.
+     * Al terminar la animacion, pasa a la pantalla de fin normal.
+     */
+    private void mostrarVictoria(Runnable alTerminar) {
+        victoriaContenedor.removeAll();
+        PanelVictoria panel = new PanelVictoria();
+        victoriaContenedor.add(panel, new GridBagConstraints());
+        victoriaContenedor.revalidate();
+        victoriaContenedor.repaint();
+        cardLayout.show(cardsRoot, PANTALLA_VICTORIA);
+        panel.iniciar(alTerminar);
+    }
+
     // ---------------- PANTALLA: HISTORIAL ----------------
 
     private JPanel crearPantallaHistorial() {
@@ -1069,7 +1100,7 @@ public class CardBattleFrame extends JFrame {
         arbolFamilias.getInputMap(JComponent.WHEN_FOCUSED).put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0), "none");
 
         arbolTexto.setEditable(false);
-        arbolTexto.setFont(new Font("Consolas", Font.PLAIN, 13));
+        arbolTexto.setFont(new Font(TemaUndertale.FAMILIA_FUENTE, Font.PLAIN, 13));
         arbolTexto.setBackground(TemaUndertale.FONDO);
         arbolTexto.setForeground(TemaUndertale.VERDE);
         JScrollPane scroll = new JScrollPane(arbolTexto);
@@ -1177,7 +1208,7 @@ public class CardBattleFrame extends JFrame {
         TemaUndertale.fondoNegro(panel);
         panel.setBorder(BorderFactory.createEmptyBorder(60, 40, 60, 40));
 
-        finTitulo.setFont(new Font("Consolas", Font.BOLD, 28));
+        finTitulo.setFont(new Font(TemaUndertale.FAMILIA_FUENTE, Font.BOLD, 28));
         TemaUndertale.estilizar(finTitulo);
         panel.add(finTitulo, BorderLayout.CENTER);
 
@@ -1211,7 +1242,8 @@ public class CardBattleFrame extends JFrame {
             // El jugador pierde: pantalla en negro con el corazon rompiendose y solo el sonido de Game Over.
             mostrarGameOver(() -> mostrarPantallaFin("PERDISTE. La CPU gana."));
         } else {
-            mostrarPantallaFin("¡GANASTE!");
+            // El jugador gana: el corazon brilla con estrellas antes de pasar a la pantalla final.
+            mostrarVictoria(() -> mostrarPantallaFin("¡GANASTE!"));
         }
     }
 
