@@ -39,6 +39,14 @@ public class PanelEsquive extends JPanel {
     private static final int ALTO_JEFE = 90;
     private static final int ALTO_TOTAL = ALTO_JEFE + ALTO_ARENA;
 
+    /**
+     * Factor de escala visual: el movimiento y las colisiones siguen calculandose
+     * en el area logica de {@link #ANCHO}x{@link #ALTO_TOTAL} (sin cambios de dificultad),
+     * pero el panel se dibuja al doble de tamaño para que el jefe, las balas y el corazon
+     * se vean mas grandes y ocupen mas espacio en pantalla.
+     */
+    private static final double ESCALA_VISUAL = 2.0;
+
     private static final int RADIO_CORAZON = 8;
     private static final double VELOCIDAD_CORAZON = 4.0;
     private static final int MS_POR_TICK = 16;
@@ -115,7 +123,7 @@ public class PanelEsquive extends JPanel {
         this.velocidadBalaMax = velocidadBalaMax;
         this.escudosIniciales = escudosIniciales;
         this.escudosRestantes = escudosIniciales;
-        setPreferredSize(new Dimension(ANCHO, ALTO_TOTAL));
+        setPreferredSize(new Dimension((int) Math.round(ANCHO * ESCALA_VISUAL), (int) Math.round(ALTO_TOTAL * ESCALA_VISUAL)));
         setBackground(TemaUndertale.FONDO);
         setFocusable(true);
         configurarControles();
@@ -380,6 +388,9 @@ public class PanelEsquive extends JPanel {
         super.paintComponent(g0);
         Graphics2D g = (Graphics2D) g0;
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        // Todo el dibujo de aqui en adelante sigue usando las coordenadas logicas (ANCHO x ALTO_TOTAL);
+        // esta escala hace que se vea todo mas grande sin tocar el movimiento ni las colisiones.
+        g.scale(ESCALA_VISUAL, ESCALA_VISUAL);
 
         dibujarJefe(g);
 

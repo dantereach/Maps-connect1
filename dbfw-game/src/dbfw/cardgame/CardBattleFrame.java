@@ -203,6 +203,7 @@ public class CardBattleFrame extends JFrame {
         add(cardsRoot, BorderLayout.CENTER);
 
         setSize(950, 750);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setLocationRelativeTo(null);
         cardLayout.show(cardsRoot, PANTALLA_DIFICULTAD);
 
