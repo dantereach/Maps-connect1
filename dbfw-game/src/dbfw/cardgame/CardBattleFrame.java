@@ -478,8 +478,8 @@ public class CardBattleFrame extends JFrame {
                     jugador.drawCard();
                     appendLog(jugador.getName() + " roba 1 carta por el efecto de " + carta.getName() + ".");
                 } catch (MazoVacioException e) {
-                    declararDerrota(jugador);
-                    return;
+                    jugador.remezclarManoYMazoYRobarCinco();
+                    appendLog(jugador.getName() + " se quedo sin mazo: revuelve su mano con el mazo y roba 5 cartas nuevas.");
                 }
                 continue;
             }
@@ -739,8 +739,8 @@ public class CardBattleFrame extends JFrame {
                 human.drawCard();
                 appendLog("Tu lider roba 1 carta al atacar.");
             } catch (MazoVacioException e) {
-                declararDerrota(human);
-                return;
+                human.remezclarManoYMazoYRobarCinco();
+                appendLog("Te quedaste sin mazo: se revuelve tu mano con el mazo y robas 5 cartas nuevas.");
             }
 
             appendLog("Tu lider golpea a la CPU por " + dano + " de vida.");
@@ -825,14 +825,14 @@ public class CardBattleFrame extends JFrame {
         }
         ordenTurnos.avanzar(); // vuelve el turno al humano
         human.startTurn();
+        appendLog("\n=== Tu turno (" + ordenTurnos.actual().getName() + ") ===");
         try {
             human.drawCard();
+            appendLog("Robas 1 carta.");
         } catch (MazoVacioException e) {
-            declararDerrota(human);
-            return;
+            human.remezclarManoYMazoYRobarCinco();
+            appendLog("Te quedaste sin mazo: se revuelve tu mano con el mazo y robas 5 cartas nuevas.");
         }
-        appendLog("\n=== Tu turno (" + ordenTurnos.actual().getName() + ") ===");
-        appendLog("Robas 1 carta.");
         refreshUI();
     }
 

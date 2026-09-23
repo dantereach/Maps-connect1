@@ -4,6 +4,7 @@ import dbfw.cardgame.estructuras.Cola;
 import dbfw.cardgame.estructuras.ColaPrioridad;
 import dbfw.cardgame.estructuras.ListaSimple;
 import dbfw.cardgame.estructuras.Pila;
+import dbfw.cardgame.excepciones.ColaVaciaException;
 import dbfw.cardgame.excepciones.MazoVacioException;
 import dbfw.cardgame.excepciones.PilaVaciaException;
 import java.util.Random;
@@ -231,6 +232,36 @@ public class CardPlayer {
         } catch (PilaVaciaException e) {
             throw new MazoVacioException(name + " se quedo sin cartas en el mazo para robar.", e);
         }
+    }
+
+    /**
+     * Se usa cuando el mazo se queda sin cartas para robar: en vez de perder, se juntan las
+     * cartas que quedan en la mano con las que queden en el mazo, se revuelven entre si y se
+     * arma un mazo nuevo; despues se reparten 5 cartas para la mano.
+     */
+    public void remezclarManoYMazoYRobarCinco() {
+        int total = hand.tamano() + deck.tamano();
+        GameCard[] cartas = new GameCard[total];
+        int idx = 0;
+        while (!hand.esVacia()) {
+            try {
+                cartas[idx++] = hand.desencolar();
+            } catch (ColaVaciaException e) {
+                break; // no deberia pasar, ya se valido con esVacia()
+            }
+        }
+        while (!deck.esVacia()) {
+            try {
+                cartas[idx++] = deck.desapilar();
+            } catch (PilaVaciaException e) {
+                break; // no deberia pasar, ya se valido con esVacia()
+            }
+        }
+        barajar(cartas);
+        for (GameCard carta : cartas) {
+            deck.apilar(carta);
+        }
+        drawInitialHand(5);
     }
 
     /** Inicio de turno: gana energia, la recarga y limpia lo jugado el turno anterior. */
