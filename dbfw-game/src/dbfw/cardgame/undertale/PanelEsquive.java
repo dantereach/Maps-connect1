@@ -39,6 +39,14 @@ public class PanelEsquive extends JPanel {
     private static final int ALTO_JEFE = 90;
     private static final int ALTO_TOTAL = ALTO_JEFE + ALTO_ARENA;
 
+    /**
+     * Factor de escala visual: el movimiento y las colisiones siguen calculandose
+     * en el area logica de {@link #ANCHO}x{@link #ALTO_TOTAL} (sin cambios de dificultad),
+     * pero el panel se dibuja al doble de tamaño para que el jefe, las balas y el corazon
+     * se vean mas grandes y ocupen mas espacio en pantalla.
+     */
+    private static final double ESCALA_VISUAL = 2.0;
+
     private static final int RADIO_CORAZON = 8;
     private static final double VELOCIDAD_CORAZON = 4.0;
     private static final int MS_POR_TICK = 16;
@@ -115,7 +123,7 @@ public class PanelEsquive extends JPanel {
         this.velocidadBalaMax = velocidadBalaMax;
         this.escudosIniciales = escudosIniciales;
         this.escudosRestantes = escudosIniciales;
-        setPreferredSize(new Dimension(ANCHO, ALTO_TOTAL));
+        setPreferredSize(new Dimension((int) Math.round(ANCHO * ESCALA_VISUAL), (int) Math.round(ALTO_TOTAL * ESCALA_VISUAL)));
         setBackground(TemaUndertale.FONDO);
         setFocusable(true);
         configurarControles();
@@ -380,6 +388,9 @@ public class PanelEsquive extends JPanel {
         super.paintComponent(g0);
         Graphics2D g = (Graphics2D) g0;
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        // Todo el dibujo de aqui en adelante sigue usando las coordenadas logicas (ANCHO x ALTO_TOTAL);
+        // esta escala hace que se vea todo mas grande sin tocar el movimiento ni las colisiones.
+        g.scale(ESCALA_VISUAL, ESCALA_VISUAL);
 
         dibujarJefe(g);
 
@@ -397,7 +408,7 @@ public class PanelEsquive extends JPanel {
         g.fill(formaCorazon(hx, hy, RADIO_CORAZON));
 
         g.setColor(TemaUndertale.VERDE);
-        g.setFont(new Font("Consolas", Font.BOLD, 13));
+        g.setFont(new Font(TemaUndertale.FAMILIA_FUENTE, Font.BOLD, 13));
         int segundosRestantes = Math.max(0, (int) Math.ceil((duracionMs - tiempoTranscurridoMs) / 1000.0));
         g.drawString("Tiempo: " + segundosRestantes + "s", 8, ALTO_TOTAL - 26);
         g.drawString("Golpes recibidos: " + golpesRecibidos, 8, ALTO_TOTAL - 10);
@@ -524,7 +535,7 @@ public class PanelEsquive extends JPanel {
         g.drawLine((int) cx, (int) (cy + 18), (int) (cx - 10), (int) (cy + 34));
         g.drawLine((int) cx, (int) (cy + 18), (int) (cx + 10), (int) (cy + 34));
 
-        g.setFont(new Font("Consolas", Font.BOLD, 12));
+        g.setFont(new Font(TemaUndertale.FAMILIA_FUENTE, Font.BOLD, 12));
         g.setColor(TemaUndertale.VERDE_BRILLANTE);
         g.drawString(fraseDelJefe(), 10, 16);
 

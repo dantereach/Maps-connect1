@@ -1,5 +1,6 @@
 dbfw-game/out/
-# Musica de fondo: cada quien coloca su propio archivo aqui (derechos de autor).
-# Se ignora el contenido pero se conserva la carpeta vacia con .gitkeep.
+# Musica de fondo: el tema oficial del juego (theme.mp3) si se versiona porque es propio.
+# Cualquier otro archivo que cada quien coloque aqui para probar localmente se sigue ignorando.
 dbfw-game/music/*
 !dbfw-game/music/.gitkeep
+!dbfw-game/music/theme.mp3

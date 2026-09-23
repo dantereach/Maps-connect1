@@ -4,6 +4,7 @@ import dbfw.cardgame.estructuras.Cola;
 import dbfw.cardgame.estructuras.ColaPrioridad;
 import dbfw.cardgame.estructuras.ListaSimple;
 import dbfw.cardgame.estructuras.Pila;
+import dbfw.cardgame.excepciones.ColaVaciaException;
 import dbfw.cardgame.excepciones.MazoVacioException;
 import dbfw.cardgame.excepciones.PilaVaciaException;
 import java.util.Random;
@@ -32,8 +33,10 @@ public class CardPlayer {
     private final ColaPrioridad<GameCard> efectosPendientes = new ColaPrioridad<>();
     /** Generador aleatorio para barajar. */
     private final Random random = new Random();
+    /** Vida maxima con la que empezo este jugador (para dibujar su barra de HP). */
+    private final int vidaMaxima;
     /** Vida restante. */
-    private int life = 7;
+    private int life;
     /** Energia disponible este turno. */
     private int energyAvailable = 0;
     /** Energia maxima acumulada, hasta 10. */
@@ -44,14 +47,27 @@ public class CardPlayer {
     private int bonusAtaquePendiente = 0;
 
     /**
-     * Crea un jugador con su lider.
+     * Crea un jugador con su lider y 7 de vida inicial.
      *
      * @param name   nombre visible del jugador
      * @param leader lider del jugador
      */
     public CardPlayer(String name, LeaderCard leader) {
+        this(name, leader, 7);
+    }
+
+    /**
+     * Crea un jugador con su lider y una vida inicial especifica.
+     *
+     * @param name        nombre visible del jugador
+     * @param leader      lider del jugador
+     * @param vidaInicial vida con la que empieza este jugador
+     */
+    public CardPlayer(String name, LeaderCard leader, int vidaInicial) {
         this.name = name;
         this.leader = leader;
+        this.vidaMaxima = vidaInicial;
+        this.life = vidaInicial;
     }
 
     /** @return el nombre visible del jugador. */
@@ -96,6 +112,11 @@ public class CardPlayer {
     /** @return la vida restante del jugador. */
     public int getLife() {
         return life;
+    }
+
+    /** @return la vida maxima con la que empezo este jugador. */
+    public int getVidaMaxima() {
+        return vidaMaxima;
     }
 
     /** Actualiza la vida sin bajar de 0 y revisa la transformacion del lider. */
@@ -211,6 +232,36 @@ public class CardPlayer {
         } catch (PilaVaciaException e) {
             throw new MazoVacioException(name + " se quedo sin cartas en el mazo para robar.", e);
         }
+    }
+
+    /**
+     * Se usa cuando el mazo se queda sin cartas para robar: en vez de perder, se juntan las
+     * cartas que quedan en la mano con las que queden en el mazo, se revuelven entre si y se
+     * arma un mazo nuevo; despues se reparten 5 cartas para la mano.
+     */
+    public void remezclarManoYMazoYRobarCinco() {
+        int total = hand.tamano() + deck.tamano();
+        GameCard[] cartas = new GameCard[total];
+        int idx = 0;
+        while (!hand.esVacia()) {
+            try {
+                cartas[idx++] = hand.desencolar();
+            } catch (ColaVaciaException e) {
+                break; // no deberia pasar, ya se valido con esVacia()
+            }
+        }
+        while (!deck.esVacia()) {
+            try {
+                cartas[idx++] = deck.desapilar();
+            } catch (PilaVaciaException e) {
+                break; // no deberia pasar, ya se valido con esVacia()
+            }
+        }
+        barajar(cartas);
+        for (GameCard carta : cartas) {
+            deck.apilar(carta);
+        }
+        drawInitialHand(5);
     }
 
     /** Inicio de turno: gana energia, la recarga y limpia lo jugado el turno anterior. */
