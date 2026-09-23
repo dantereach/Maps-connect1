@@ -49,9 +49,13 @@ import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
+import java.awt.image.BufferedImage;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.IntConsumer;
+import javax.imageio.ImageIO;
+import javax.swing.ImageIcon;
 
 /**
  * Ventana unica del juego hibrido Undertale/Slay the Spire, inspirado en Dragon Ball Fusion World.
@@ -273,6 +277,27 @@ public class CardBattleFrame extends JFrame {
 
     // ---------------- PANTALLA: DIFICULTAD ----------------
 
+    /** Ruta del logo del juego (imagen fija, ver assets/logo.png). */
+    private static final String RUTA_LOGO = "assets/logo.png";
+    /** Alto en pixeles al que se escala el logo en la pantalla de titulo. */
+    private static final int ALTO_LOGO = 220;
+
+    /**
+     * Carga el logo del juego y lo escala a {@link #ALTO_LOGO} de alto (conservando proporcion).
+     * Si el archivo no se encuentra, regresa un icono vacio para no romper la pantalla de titulo.
+     */
+    private ImageIcon cargarLogo() {
+        try {
+            BufferedImage original = ImageIO.read(new File(RUTA_LOGO));
+            int alto = ALTO_LOGO;
+            int ancho = Math.round(original.getWidth() * (alto / (float) original.getHeight()));
+            java.awt.Image escalada = original.getScaledInstance(ancho, alto, java.awt.Image.SCALE_SMOOTH);
+            return new ImageIcon(escalada);
+        } catch (java.io.IOException e) {
+            return new ImageIcon(new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB));
+        }
+    }
+
     /** Primera pantalla: elegir dificultad. Al elegir, arranca la partida en esta misma ventana. */
     private JPanel crearPantallaDificultad() {
         JPanel panel = new JPanel(new GridBagLayout());
@@ -281,9 +306,7 @@ public class CardBattleFrame extends JFrame {
         gbc.gridx = 0;
         gbc.insets = new Insets(10, 10, 10, 10);
 
-        JLabel titulo = new JLabel("TECMILENIO HEROES");
-        titulo.setFont(new Font(TemaUndertale.FAMILIA_FUENTE, Font.BOLD, 30));
-        titulo.setForeground(TemaUndertale.VERDE_BRILLANTE);
+        JLabel titulo = new JLabel(cargarLogo());
         gbc.gridy = 0;
         panel.add(titulo, gbc);
 
